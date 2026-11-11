@@ -1,0 +1,9 @@
+{
+  "type": "preload-native",
+  "name": "Flashlight Test",
+  "author": "Zxwmwmwm",
+  "description": "Experimental camera-following screen-space flashlight test.",
+  "version": "0.1.0",
+  "entry": "libFlashlightTest.so",
+  "minecraft_versions": ["1.26.62", "1.26.62.*"]
+}

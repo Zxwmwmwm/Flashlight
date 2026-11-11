@@ -2,7 +2,7 @@ name: Build and test
 on:
   push:
     branches: [main]
-    tags: ['probe-v*']
+    tags: ['probe-v*', 'test-v*']
   pull_request:
   workflow_dispatch:
 permissions:
@@ -14,28 +14,36 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run host tests
         run: bash tests/run.sh
+      - name: Install software GLES test dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y libegl1-mesa-dev libgles2-mesa-dev
+      - name: Run software EGL rendering test
+        run: bash tests/run_render.sh
       - uses: android-actions/setup-android@v3
         with:
           packages: platform-tools
           log-accepted-android-sdk-licenses: false
-      - name: Install Android NDK r28c
-        run: sdkmanager 'ndk;28.2.13676358'
-      - name: Build ARM64 diagnostic package
-        env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/28.2.13676358
-        run: bash tools/build_probe.sh
-      - name: Validate package
+      - name: Install Android SDK and NDK
+        run: sdkmanager 'ndk;28.2.13676358' 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Build ARM64 packages
+        run: |
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358"
+          export ANDROID_JAR="$ANDROID_HOME/platforms/android-35/android.jar"
+          export R8_JAR="$ANDROID_HOME/build-tools/35.0.0/lib/d8.jar"
+          bash tools/build_probe.sh
+          bash tools/build_test.sh
+      - name: Validate packages
         run: |
           unzip -t artifacts/Flashlight-Probe.levipack
-          "$ANDROID_HOME/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h artifacts/libFlashlightProbe.so | grep AArch64
+          unzip -t artifacts/Flashlight-Test.levipack
+          for f in artifacts/*.so; do "$ANDROID_HOME/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h "$f" | grep AArch64; done
       - uses: actions/upload-artifact@v4
         with:
-          name: Flashlight-probe-build
-          path: artifacts/Flashlight-Probe.levipack
+          name: Flashlight-builds
+          path: artifacts/*.levipack
           if-no-files-found: error
           retention-days: 7
   release:
-    if: startsWith(github.ref, 'refs/tags/probe-v')
+    if: startsWith(github.ref, 'refs/tags/probe-v') || startsWith(github.ref, 'refs/tags/test-v')
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -43,11 +51,15 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: Flashlight-probe-build
+          name: Flashlight-builds
           path: artifacts
-      - name: Publish diagnostic prerelease
+      - name: Publish experimental prerelease
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          gh release create "$GITHUB_REF_NAME" artifacts/Flashlight-Probe.levipack --verify-tag --prerelease --title 'Flashlight diagnostic probe' --notes 'Read-only diagnostic build. This probe does not implement the flashlight effect.'
+          if [[ "$GITHUB_REF_NAME" == probe-v* ]]; then
+            gh release create "$GITHUB_REF_NAME" artifacts/Flashlight-Probe.levipack --verify-tag --prerelease --title 'Flashlight diagnostic probe' --notes 'Read-only diagnostic build. This probe does not implement the flashlight effect.'
+          else
+            gh release create "$GITHUB_REF_NAME" artifacts/Flashlight-Test.levipack --verify-tag --prerelease --title 'Flashlight 0.1.0 — rendering test' --notes 'Experimental screen-space GLES rendering test. The beam is not true dynamic world lighting. Starts off and supports the exact target build only; Android visual behavior and UI isolation require testing.'
+          fi

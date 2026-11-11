@@ -1,33 +1,43 @@
 # Flashlight
 
-An Android ARM64 LeviLauncher project exploring a customizable first-person flashlight. The intended effect is a colored, soft-edged beam that follows the view with adjustable, natural-looking camera lag while leaving Minecraft's UI unchanged.
+A customizable camera-following flashlight experiment for LeviLauncher on Android ARM64. Adjust the beam color, strength, size, softness, placement, ambient brightness, and the delay as it follows camera turns.
 
-## Project status
+## Experimental rendering test — 0.1.0
 
-**This is an early research build, not a working flashlight yet.** The current downloadable `.levipack` is a read-only diagnostic: it reports candidate camera and world-rendering signatures to Android logcat under `FlashlightProbe`. It does not light the world, draw a beam, apply hooks, modify game memory, or implement in-game settings. A standalone quaternion smoothing prototype is covered by host tests but is not connected to Minecraft.
+This is a **screen-space GLES experiment**, not true dynamic world lighting. It changes the brightness and tint of existing world-render pixels; it cannot recover detail from completely black pixels, cast physical shadows, or light blocks outside the current view. It is intended to run at a world-render callback before the UI, but the render timing, UI isolation, appearance, controls, and lag direction have not yet been validated on Android. The test can affect the hand or other rendered elements depending on render order. Graphics modes using a different rendering backend may not work.
 
-The intended settings include color, brightness, beam size and softness, placement, and camera-follow delay. Rendering these effects independently of the HUD depends on finding and validating the appropriate render pass on the target device. A post-process might brighten existing pixels but is not the same as dynamic world lighting, and may not recover detail in completely black pixels.
+The test installs native hooks and checks for the exact GNU build ID `c60fa32908019eecae39ebfe7bac5755dc35cde2` of the supplied Android library, plus two expected signatures. Other builds are rejected even if their version labels look similar. These checks reduce the risk of a wrong-build hook; they do **not** prove the ABI, object layout, render pass, or hooks are safe. It starts with the beam **off**; the hooks are installed when the mod is enabled. In case of a crash or visual issues, disable the mod in LeviLauncher and restart Minecraft. Avoid combining the test with other rendering-hook mods during initial testing.
 
-## Using the diagnostic
+### Try the test
 
-1. Import `Flashlight-Probe.levipack` in LeviLauncher on Android ARM64 and enable it.
-2. Start Minecraft, enter a world, and use LogLens or logcat to filter for `FlashlightProbe`.
-3. Share the messages showing the five candidate counts and scan completion. A unique match is only a starting point; it does not verify behavior, render backend, ABI, or hook safety.
-4. Disable the probe after collecting the log. It may briefly delay library-loading operations while it scans.
+1. Disable the earlier Flashlight Probe and other experimental rendering mods. Import `Flashlight-Test.levipack` in LeviLauncher and enable it.
+2. Enter a world. Tap the floating **FL** button and then **Turn beam on**. Move the camera and try the controls. Tap **Turn beam off** to restore the unprocessed view.
+3. Check whether the beam appears, whether it lags naturally in the correct direction, and whether the HUD, hand, menus, and buttons remain unaffected. The on-screen counter reports successfully submitted test frames, not proof that the beam is visible or UI-safe.
+4. If it does not appear or anything looks unusual, filter LogLens for **`FlashlightTest`** and share the log along with the in-panel status. Turn the beam off or disable the mod and restart.
 
-The supplied research library identifies itself as `1.26.62.01_RC0`. A version label alone does not establish compatibility with other builds. The diagnostic has not been validated on a device.
+Settings are saved on the device; the on/off state resets to off when the mod starts. The bubble can be dragged for the current session. Minecraft world or server state is not intentionally changed.
+
+## Read-only diagnostic
+
+The separate `Flashlight-Probe.levipack` scans candidate signatures and logs counts under `FlashlightProbe`; it does not install hooks or render effects. The user's probe log recorded one candidate for each of the five selected signatures. This confirms matches in readable executable memory, not function identity or safe behavior.
 
 ## Build
 
-Requirements: a Linux x86-64 host, Python 3, a C++17 compiler for tests, and Android NDK r28c (`28.2.13676358`).
+Requirements: Linux x86-64, Python 3, C++17, JDK, Android NDK r28c, Android platform `android.jar`, and a D8/R8 jar.
 
 ```sh
 bash tests/run.sh
-ANDROID_NDK_HOME=/path/to/android-ndk-r28c bash tools/build_probe.sh
+# Optional host-side software EGL/GLES test (libEGL and libGLES development headers required):
+bash tests/run_render.sh
+export ANDROID_NDK_HOME=/path/to/android-ndk-r28c
+export ANDROID_JAR=/path/to/android.jar
+export R8_JAR=/path/to/d8.jar
+bash tools/build_test.sh
+bash tools/build_probe.sh
 ```
 
-The build produces `artifacts/libFlashlightProbe.so` and `artifacts/Flashlight-Probe.levipack`. GitHub Actions runs the tests and compiles the probe on pushes, pull requests, or manual dispatch. Tags named `probe-v*` trigger a diagnostic prerelease with the `.levipack` as its sole uploaded asset. Build outputs are not committed.
+Build outputs are under `artifacts/` and are not committed. GitHub Actions tests and builds both packages on pushes, pull requests, and manual dispatch. Tags named `test-v*` and `probe-v*` publish separate experimental releases, each with its respective `.levipack` as the sole uploaded asset. The mod version remains 0.1.0.
 
 ## Credits and license
 
-Copyright © 2026 Zxwmwmwm. Flashlight is MIT licensed. Candidate signatures are derived from [BedrockTools](https://github.com/QYCottage/BedrockTools); its MIT license is included in `third_party/BedrockTools/LICENSE` and the probe package. LeviLauncher and BedrockTools are used as development references. The Minecraft library is not distributed here.
+Copyright © 2026 Zxwmwmwm. Flashlight is MIT licensed. Candidate signatures, camera offset, and render-pass research are informed by [BedrockTools](https://github.com/QYCottage/BedrockTools); its MIT license is included in `third_party/BedrockTools/LICENSE` and the packages. LeviLauncher and BedrockTools are used as development references. The Minecraft library is not distributed here.

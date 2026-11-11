@@ -16,4 +16,14 @@ Goal: a configurable view-following flashlight whose beam lags naturally as the 
 3. Prototype a reversible beam on that pass and distinguish simulated post-process exposure from actual geometric/dynamic light. Check black pixels, the hand, particles, menus and HDR; implement configurable settings once the renderer is proven.
 4. Integrate the tested quaternion smoothing math and reset it on world transitions, discontinuities, and pauses. Validate on device for lag direction, frame rate and orientation conventions.
 
-The mathematical prototype, probe and CI are groundwork only, not a flashlight implementation.
+The initial mathematical prototype and probe were groundwork; see the experimental screen-space test below.
+
+## Device probe and first screen-space test
+
+The user ran the read-only probe and reported one candidate for each of the five patterns. This supports runtime pattern matching on that device, but it does not identify the graphics backend or validate the ABI and object offsets.
+
+An opt-in native GLES test is now available separately as `Flashlight-Test.levipack`, still version 0.1.0. It installs guarded candidate `RenderLevel` and `UpdatePlayerFromCamera` hooks only if the exact supplied build ID and expected entry patterns match. The render callback requires a current EGL context, GLES 3, and a full-surface viewport; it copies the current color buffer and applies a multiplicative soft-edged beam. It does not use scene depth or add physical light, so black pixels stay black. Camera lag uses a smoothed quaternion and an approximate 70-degree vertical FOV; view conventions, render threading, HUD separation, and actual target framebuffer need device validation. Some graphics configurations, intermediate framebuffers, or MSAA arrangements may skip the pass or fail to copy.
+
+The beam starts off. There is a separate Android control panel with saved color, brightness, radius, softness, delay, placement, and ambient settings. GLES resources are owned per rendering thread/context; they are retained until context destruction or context/surface change, not proactively deleted when a mod is toggled off. As with any native hook, disabling or unloading during a callback may be unsafe depending on the launcher hook implementation; restart the game after disabling the experiment. Do not run simultaneously with other mods hooking the same render/camera functions during the initial test.
+
+The host math suite and a Mesa software EGL test validate selected calculations, shader compilation, visible bright-center/dark-edge output, off behavior, and GL state restoration for a controlled buffer. These tests are not Android device or Minecraft render-order validation.
