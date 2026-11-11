@@ -26,5 +26,9 @@ int main(){
  light=true;worldVisible=true;camera={0,0,0,1};cameraTime=Clock::now();glClearColor(.25f,.2f,.1f,1);glClear(GL_COLOR_BUFFER_BIT);passTracker.reset();glUseProgram(0);beforeClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);GLuint dummy=makeProgram();assert(dummy);glUseProgram(dummy);beforeClear(GL_DEPTH_BUFFER_BIT);assert(frames==4);beforeClear(GL_DEPTH_BUFFER_BIT);assert(frames==4);
  // Menu/non-world frames and cropped scissors cannot trigger processing.
  passTracker.reset();worldVisible=false;beforeClear(GL_COLOR_BUFFER_BIT);beforeClear(GL_DEPTH_BUFFER_BIT);assert(frames==4);worldVisible=true;glEnable(GL_SCISSOR_TEST);glScissor(0,0,32,32);passTracker.reset();beforeClear(GL_COLOR_BUFFER_BIT);beforeClear(GL_DEPTH_BUFFER_BIT);assert(frames==4);glDisable(GL_SCISSOR_TEST);glUseProgram(0);glDeleteProgram(dummy);
+ // With dark-world off, pixels well outside the beam retain their source brightness.
+ passTracker.reset();light=true;camera={0,0,0,1};cameraTime=Clock::now();renderer.lag.reset();FLSetting(9,1.0f);glClearColor(.25f,.2f,.1f,1);glClear(GL_COLOR_BUFFER_BIT);render();unsigned char brightEdge[4];glReadPixels(0,0,1,1,GL_RGBA,GL_UNSIGNED_BYTE,brightEdge);assert(brightEdge[0]>=63&&brightEdge[0]<=65);
+ // Dark-world on uses the saved ambient value.
+ FLSetting(9,.25f);glClearColor(.25f,.2f,.1f,1);glClear(GL_COLOR_BUFFER_BIT);cameraTime=Clock::now();render();unsigned char darkEdge[4];glReadPixels(0,0,1,1,GL_RGBA,GL_UNSIGNED_BYTE,darkEdge);assert(darkEdge[0]>=15&&darkEdge[0]<=17);
  assert(glGetError()==GL_NO_ERROR);renderer.release();eglMakeCurrent(display,EGL_NO_SURFACE,EGL_NO_SURFACE,EGL_NO_CONTEXT);eglDestroyContext(display,context);eglDestroySurface(display,surface);eglTerminate(display);
 }

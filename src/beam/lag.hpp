@@ -2,7 +2,7 @@
 #include <algorithm>
 #include <cmath>
 
-// Independent mathematical prototype: this is not yet connected to Minecraft.
+// Frame-rate-independent quaternion smoothing for the experimental camera-following beam.
 namespace flashlight::beam {
 struct Quaternion { double x, y, z, w; };
 inline double dot(Quaternion a, Quaternion b) { return a.x*b.x+a.y*b.y+a.z*b.z+a.w*b.w; }

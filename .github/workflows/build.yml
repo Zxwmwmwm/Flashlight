@@ -57,5 +57,5 @@ jobs:
           if [[ "$GITHUB_REF_NAME" == probe-v* ]]; then
             gh release create "$GITHUB_REF_NAME" artifacts/Flashlight-Probe.levipack --verify-tag --prerelease --title 'Flashlight diagnostic probe' --notes 'Read-only diagnostic build. This probe does not implement the flashlight effect.'
           else
-            gh release create "$GITHUB_REF_NAME" artifacts/Flashlight-Test.levipack --verify-tag --prerelease --title 'Flashlight 0.1.0 — rendering test hotfix' --notes 'Experimental screen-space GLES render-thread test. The beam is not true dynamic world lighting. Starts off and supports the exact target build only; Android visual behavior and UI isolation require testing.'
+            gh release create "$GITHUB_REF_NAME" artifacts/Flashlight-Test.levipack --verify-tag --prerelease --title "Flashlight ${GITHUB_REF_NAME#test-v} — experimental build" --notes 'Experimental screen-space GLES render-thread test. The beam is not true dynamic world lighting. Starts off and supports the exact target build only; Android visual behavior and UI isolation require testing.'
           fi

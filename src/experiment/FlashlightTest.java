@@ -31,10 +31,10 @@ public final class FlashlightTest {
     private static native int frameCount();
     private static final Handler MAIN=new Handler(Looper.getMainLooper());
     private static final int ACCENT=0xffbba8ff,TEXT=0xfff4f3ff,MUTED=0xffabaec2;
-    private static final String[] NAMES={"Red","Green","Blue","Strength","Beam size","Softness","Follow delay","Horizontal position","Vertical position","Ambient brightness"};
+    private static final String[] NAMES={"Red","Green","Blue","Strength","Beam size","Softness","Follow delay","Horizontal position","Vertical position","Dark-world brightness"};
     private static final float[] DEFAULT={1f,.93f,.72f,.62f,.40f,.55f,.32f,.50f,.50f,.25f};
-    private static boolean active,light,pauseOnly,paused,pauseKnown;
-    private static Activity activity;private static OverlayRoot root;private static View panel;private static TextView bubble,status,toggle,pauseToggle;
+    private static boolean active,light,pauseOnly,paused,pauseKnown,darkWorld;
+    private static Activity activity;private static OverlayRoot root;private static View panel;private static TextView bubble,status,toggle,pauseToggle,darkToggle;private static SeekBar ambientSlider;
     private static SharedPreferences prefs;private static Method pauseMethod,hudMethod,menuMethod;private static boolean inputLookupDone;
     private static int dp(Context a,float v){return (int)(v*a.getResources().getDisplayMetrics().density+.5f);}
     private static GradientDrawable bg(int color,int radius,Context a){GradientDrawable d=new GradientDrawable();d.setColor(color);d.setCornerRadius(dp(a,radius));return d;}
@@ -62,20 +62,52 @@ public final class FlashlightTest {
     }};
     public static void start(){MAIN.post(new Runnable(){public void run(){if(active)return;active=true;monitor.run();}});}
     public static void stop(){final java.util.concurrent.CountDownLatch done=new java.util.concurrent.CountDownLatch(1);Runnable task=new Runnable(){public void run(){try{active=false;light=false;MAIN.removeCallbacks(monitor);detach();}finally{done.countDown();}}};if(Looper.myLooper()==Looper.getMainLooper())task.run();else{MAIN.post(task);try{done.await();}catch(InterruptedException e){Thread.currentThread().interrupt();}}}
-    private static void detach(){if(root!=null&&root.getParent() instanceof ViewGroup)((ViewGroup)root.getParent()).removeView(root);root=null;panel=null;bubble=null;status=null;toggle=null;pauseToggle=null;activity=null;prefs=null;}
+    private static void detach(){if(root!=null&&root.getParent() instanceof ViewGroup)((ViewGroup)root.getParent()).removeView(root);root=null;panel=null;bubble=null;status=null;toggle=null;pauseToggle=null;darkToggle=null;ambientSlider=null;activity=null;prefs=null;}
     private static final class OverlayRoot extends FrameLayout {
-        View sheet;
-        OverlayRoot(Context c){super(c);setClipChildren(true);setClipToPadding(true);}
+        View sheet; final SharedPreferences positionPrefs; final int margin,minWidth,minHeight;
+        OverlayRoot(Context c,SharedPreferences p){super(c);positionPrefs=p;margin=dp(c,12);minWidth=dp(c,230);minHeight=dp(c,160);setClipChildren(true);setClipToPadding(true);}
         protected void onSizeChanged(int w,int h,int oldw,int oldh){super.onSizeChanged(w,h,oldw,oldh);fit(w,h);}
-        void fit(int w,int h){if(sheet==null||w<=0||h<=0)return;FrameLayout.LayoutParams lp=(FrameLayout.LayoutParams)sheet.getLayoutParams();int margin=dp(getContext(),12);lp.width=UiPolicy.dimension(w,dp(getContext(),370),margin);lp.height=UiPolicy.dimension(h,dp(getContext(),500),margin);lp.gravity=Gravity.CENTER;sheet.setLayoutParams(lp);}
+        void fit(int w,int h){
+            if(sheet==null||w<=0||h<=0)return;
+            int wantedW=positionPrefs.contains("sheetWidth")?Math.round(w*positionPrefs.getFloat("sheetWidth",.5f)):dp(getContext(),370);
+            int wantedH=positionPrefs.contains("sheetHeight")?Math.round(h*positionPrefs.getFloat("sheetHeight",.7f)):dp(getContext(),500);
+            int sw=UiPolicy.size(w,wantedW,minWidth,margin),sh=UiPolicy.size(h,wantedH,minHeight,margin);
+            int x=UiPolicy.fromFraction(w,sw,positionPrefs.getFloat("sheetX",.5f),margin),y=UiPolicy.fromFraction(h,sh,positionPrefs.getFloat("sheetY",.5f),margin);
+            apply(sw,sh,x,y);
+        }
+        void apply(int width,int height,int x,int y){
+            int w=getWidth(),h=getHeight();if(sheet==null||w<=0||h<=0)return;
+            FrameLayout.LayoutParams lp=(FrameLayout.LayoutParams)sheet.getLayoutParams();
+            lp.width=UiPolicy.size(w,width,minWidth,margin);lp.height=UiPolicy.size(h,height,minHeight,margin);
+            lp.leftMargin=UiPolicy.position(w,lp.width,x,margin);lp.topMargin=UiPolicy.position(h,lp.height,y,margin);
+            lp.rightMargin=0;lp.bottomMargin=0;lp.gravity=Gravity.LEFT|Gravity.TOP;sheet.setLayoutParams(lp);
+        }
+        void save(){
+            if(sheet==null||getWidth()<=0||getHeight()<=0)return;FrameLayout.LayoutParams lp=(FrameLayout.LayoutParams)sheet.getLayoutParams();
+            positionPrefs.edit().putFloat("sheetWidth",(float)lp.width/getWidth()).putFloat("sheetHeight",(float)lp.height/getHeight())
+                .putFloat("sheetX",UiPolicy.toFraction(getWidth(),lp.width,lp.leftMargin,margin))
+                .putFloat("sheetY",UiPolicy.toFraction(getHeight(),lp.height,lp.topMargin,margin)).apply();
+        }
+    }
+    private static void updateDarkWorld(){
+        if(darkToggle!=null)darkToggle.setText("Dark world   "+(darkWorld?"ON":"OFF"));
+        if(ambientSlider!=null){ambientSlider.setEnabled(darkWorld);ambientSlider.setAlpha(darkWorld?1f:.5f);}
+        float value=prefs==null?.25f:prefs.getFloat("setting9",.25f);
+        setSetting(9,UiPolicy.effectiveAmbient(darkWorld,value));
     }
     private static void attach(final Activity a){
-        detach();activity=a;prefs=a.getSharedPreferences("flashlight_test_settings",0);pauseOnly=prefs.getBoolean("pauseOnly",false);root=new OverlayRoot(a);
+        detach();activity=a;prefs=a.getSharedPreferences("flashlight_test_settings",0);pauseOnly=prefs.getBoolean("pauseOnly",false);darkWorld=prefs.getBoolean("darkWorld",false);root=new OverlayRoot(a,prefs);
         final LinearLayout sheet=new LinearLayout(a);panel=sheet;root.sheet=sheet;sheet.setOrientation(LinearLayout.VERTICAL);sheet.setBackground(bg(0xf51b1c29,18,a));sheet.setClipToOutline(true);sheet.setVisibility(View.GONE);
-        FrameLayout.LayoutParams pp=new FrameLayout.LayoutParams(dp(a,320),dp(a,320),Gravity.CENTER);root.addView(sheet,pp);
+        FrameLayout.LayoutParams pp=new FrameLayout.LayoutParams(dp(a,320),dp(a,320),Gravity.LEFT|Gravity.TOP);root.addView(sheet,pp);
         LinearLayout header=new LinearLayout(a);header.setOrientation(LinearLayout.HORIZONTAL);header.setGravity(Gravity.CENTER_VERTICAL);header.setPadding(dp(a,16),dp(a,12),dp(a,12),dp(a,8));sheet.addView(header);
         LinearLayout titles=new LinearLayout(a);titles.setOrientation(LinearLayout.VERTICAL);header.addView(titles,new LinearLayout.LayoutParams(0,ViewGroup.LayoutParams.WRAP_CONTENT,1));
-        titles.addView(text(a,"FLASHLIGHT",17,TEXT,true));status=text(a,"Connecting…",11,MUTED,false);titles.addView(status);
+        titles.addView(text(a,"FLASHLIGHT  ⋮⋮",16,TEXT,true));status=text(a,"Connecting…",11,MUTED,false);titles.addView(status);
+        final OverlayRoot host=root;
+        titles.setContentDescription("Drag to move the Flashlight panel");
+        titles.setOnTouchListener(new View.OnTouchListener(){float downX,downY;int x,y;public boolean onTouch(View v,MotionEvent e){FrameLayout.LayoutParams lp=(FrameLayout.LayoutParams)sheet.getLayoutParams();switch(e.getActionMasked()){
+            case MotionEvent.ACTION_DOWN:downX=e.getRawX();downY=e.getRawY();x=lp.leftMargin;y=lp.topMargin;return true;
+            case MotionEvent.ACTION_MOVE:host.apply(lp.width,lp.height,x+Math.round(e.getRawX()-downX),y+Math.round(e.getRawY()-downY));return true;
+            case MotionEvent.ACTION_UP:host.save();return true;case MotionEvent.ACTION_CANCEL:return true;default:return true;}}});
         TextView close=action(a,"✕",0xff343546);header.addView(close);close.setOnClickListener(new View.OnClickListener(){public void onClick(View v){sheet.setVisibility(View.GONE);}});
         ScrollView scroll=new ScrollView(a);scroll.setFillViewport(false);scroll.setClipChildren(true);scroll.setClipToPadding(true);sheet.addView(scroll,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,0,1));
         LinearLayout body=new LinearLayout(a);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(dp(a,16),dp(a,2),dp(a,16),dp(a,16));scroll.addView(body);
@@ -83,13 +115,25 @@ public final class FlashlightTest {
         toggle=action(a,light?"TURN BEAM OFF":"TURN BEAM ON",0xff6552bd);toggle.setEnabled(false);body.addView(toggle);toggle.setOnClickListener(new View.OnClickListener(){public void onClick(View v){light=!light;setEnabled(light);toggle.setText(light?"TURN BEAM OFF":"TURN BEAM ON");}});
         pauseToggle=action(a,"Pause-only controls   OFF",0xff343546);LinearLayout.LayoutParams opt=new LinearLayout.LayoutParams(-1,-2);opt.topMargin=dp(a,8);body.addView(pauseToggle,opt);
         pauseToggle.setOnClickListener(new View.OnClickListener(){public void onClick(View v){pauseOnly=!pauseOnly;prefs.edit().putBoolean("pauseOnly",pauseOnly).apply();queryScreen();updateVisibility();}});
+        darkToggle=action(a,"Dark world   OFF",0xff343546);LinearLayout.LayoutParams darkParams=new LinearLayout.LayoutParams(-1,-2);darkParams.topMargin=dp(a,8);body.addView(darkToggle,darkParams);
+        darkToggle.setOnClickListener(new View.OnClickListener(){public void onClick(View v){darkWorld=!darkWorld;prefs.edit().putBoolean("darkWorld",darkWorld).apply();updateDarkWorld();}});
         for(int i=0;i<NAMES.length;i++){
-            final int id=i;float value=Math.max(0,Math.min(1,prefs.getFloat("setting"+i,DEFAULT[i])));setSetting(i,value);
+            final int id=i;float value=Math.max(0,Math.min(1,prefs.getFloat("setting"+i,DEFAULT[i])));if(i!=9)setSetting(i,value);
             LinearLayout row=new LinearLayout(a);row.setOrientation(LinearLayout.VERTICAL);row.setPadding(0,dp(a,7),0,0);body.addView(row);
             final TextView label=text(a,NAMES[i]+"   "+Math.round(value*100)+"%",12,TEXT,true);row.addView(label);
-            SeekBar slider=new SeekBar(a);slider.setMax(100);slider.setProgress(Math.round(value*100));slider.setProgressTintList(ColorStateList.valueOf(ACCENT));slider.setThumbTintList(ColorStateList.valueOf(ACCENT));row.addView(slider);
-            slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar s,int v,boolean fromUser){float x=v/100f;setSetting(id,x);label.setText(NAMES[id]+"   "+v+"%");if(fromUser&&prefs!=null)prefs.edit().putFloat("setting"+id,x).apply();}public void onStartTrackingTouch(SeekBar s){}public void onStopTrackingTouch(SeekBar s){}});
+            SeekBar slider=new SeekBar(a);slider.setMax(100);slider.setProgress(Math.round(value*100));slider.setProgressTintList(ColorStateList.valueOf(ACCENT));slider.setThumbTintList(ColorStateList.valueOf(ACCENT));row.addView(slider);if(i==9)ambientSlider=slider;
+            slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar s,int v,boolean fromUser){float x=v/100f;if(id!=9||darkWorld)setSetting(id,x);label.setText(NAMES[id]+"   "+v+"%");if(fromUser&&prefs!=null)prefs.edit().putFloat("setting"+id,x).apply();}public void onStartTrackingTouch(SeekBar s){}public void onStopTrackingTouch(SeekBar s){}});
         }
+        updateDarkWorld();
+        LinearLayout footer=new LinearLayout(a);footer.setGravity(Gravity.CENTER_VERTICAL);footer.setPadding(dp(a,14),dp(a,3),dp(a,8),dp(a,6));sheet.addView(footer);
+        TextView hint=text(a,"Move from title",11,MUTED,false);footer.addView(hint,new LinearLayout.LayoutParams(0,-2,1));
+        TextView resize=action(a,"↘  RESIZE",0xff343546);resize.setContentDescription("Drag to resize the Flashlight panel");footer.addView(resize);
+        resize.setOnTouchListener(new View.OnTouchListener(){float downX,downY;int width,height,x,y;public boolean onTouch(View v,MotionEvent e){FrameLayout.LayoutParams lp=(FrameLayout.LayoutParams)sheet.getLayoutParams();switch(e.getActionMasked()){
+            case MotionEvent.ACTION_DOWN:downX=e.getRawX();downY=e.getRawY();width=lp.width;height=lp.height;x=lp.leftMargin;y=lp.topMargin;return true;
+            case MotionEvent.ACTION_MOVE:int maxW=Math.max(1,host.getWidth()-x-host.margin),maxH=Math.max(1,host.getHeight()-y-host.margin);
+                int nw=Math.max(Math.min(host.minWidth,maxW),Math.min(maxW,width+Math.round(e.getRawX()-downX)));
+                int nh=Math.max(Math.min(host.minHeight,maxH),Math.min(maxH,height+Math.round(e.getRawY()-downY)));host.apply(nw,nh,x,y);return true;
+            case MotionEvent.ACTION_UP:host.save();return true;case MotionEvent.ACTION_CANCEL:return true;default:return true;}}});
         bubble=action(a,"FL",0xee6552bd);final TextView button=bubble;FrameLayout.LayoutParams bp=new FrameLayout.LayoutParams(dp(a,48),dp(a,48),Gravity.RIGHT|Gravity.CENTER_VERTICAL);bp.rightMargin=dp(a,12);root.addView(button,bp);
         button.setOnClickListener(new View.OnClickListener(){public void onClick(View v){sheet.setVisibility(sheet.getVisibility()==View.VISIBLE?View.GONE:View.VISIBLE);}});
         button.setOnTouchListener(new View.OnTouchListener(){float ox,oy,x,y;boolean moved;public boolean onTouch(View v,MotionEvent e){switch(e.getActionMasked()){
