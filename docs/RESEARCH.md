@@ -27,3 +27,12 @@ An opt-in native GLES test is now available separately as `Flashlight-Test.levip
 The beam starts off. There is a separate Android control panel with saved color, brightness, radius, softness, delay, placement, and ambient settings. GLES resources are owned per rendering thread/context; they are retained until context destruction or context/surface change, not proactively deleted when a mod is toggled off. As with any native hook, disabling or unloading during a callback may be unsafe depending on the launcher hook implementation; restart the game after disabling the experiment. Do not run simultaneously with other mods hooking the same render/camera functions during the initial test.
 
 The host math suite and a Mesa software EGL test validate selected calculations, shader compilation, visible bright-center/dark-edge output, off behavior, and GL state restoration for a controlled buffer. These tests are not Android device or Minecraft render-order validation.
+
+
+## Android feedback and hotfix
+
+The user reported the first test showed `No EGL context at world render callback; effect skipped`. This demonstrates that callback was not a valid GLES execution point on that device; it does not by itself establish the active graphics backend. They also supplied a screenshot showing the controls extending beyond the panel.
+
+The 0.1.0 hotfix observes `glClear`, `glClearBufferfv`, `glClearBufferfi`, and `eglSwapBuffers` to look for a full-size color-clear followed by a depth-only clear on the same framebuffer, with a changed active program. This strategy is informed by BedrockTools motion blur and remains a heuristic: it can be skipped or choose the wrong pass on a different device or graphics mode. A launcher HUD/menu/pause state gate suppresses the effect outside reported gameplay. Counts are logged periodically under `FlashlightTest` when swapping while the effect is on. Camera, GPU, and UI behavior still need device testing.
+
+Controls were redesigned with a fixed header, a clipped scrolling body, and dimensions calculated from the actual parent view instead of display metrics. An optional persistent pause-only setting uses the launcher `PreloaderInput` pause state. If that API cannot be called, controls stay visible to avoid locking the user out; unknown screen state also suppresses the experimental beam. Software EGL and pure host tests do not prove Minecraft render order or Android layout behavior.

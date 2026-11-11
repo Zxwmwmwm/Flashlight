@@ -8,7 +8,7 @@ extern "C" int __android_log_print(int,const char* tag,const char* fmt,...){va_l
 int main(){
  using GetPlatform=EGLDisplay(*)(EGLenum,void*,const EGLint*);auto getPlatform=reinterpret_cast<GetPlatform>(eglGetProcAddress("eglGetPlatformDisplayEXT"));assert(getPlatform);
  auto display=getPlatform(0x31DD,nullptr,nullptr);assert(display!=EGL_NO_DISPLAY);assert(eglInitialize(display,nullptr,nullptr));assert(eglBindAPI(EGL_OPENGL_ES_API));
- EGLint attrs[]={EGL_SURFACE_TYPE,EGL_PBUFFER_BIT,EGL_RENDERABLE_TYPE,EGL_OPENGL_ES3_BIT,EGL_RED_SIZE,8,EGL_GREEN_SIZE,8,EGL_BLUE_SIZE,8,EGL_ALPHA_SIZE,8,EGL_NONE};EGLConfig config;EGLint count;assert(eglChooseConfig(display,attrs,&config,1,&count)&&count==1);
+ EGLint attrs[]={EGL_SURFACE_TYPE,EGL_PBUFFER_BIT,EGL_RENDERABLE_TYPE,EGL_OPENGL_ES3_BIT,EGL_RED_SIZE,8,EGL_GREEN_SIZE,8,EGL_BLUE_SIZE,8,EGL_ALPHA_SIZE,8,EGL_DEPTH_SIZE,16,EGL_NONE};EGLConfig config;EGLint count;assert(eglChooseConfig(display,attrs,&config,1,&count)&&count==1);
  EGLint pbuf[]={EGL_WIDTH,128,EGL_HEIGHT,128,EGL_NONE};auto surface=eglCreatePbufferSurface(display,config,pbuf);assert(surface!=EGL_NO_SURFACE);EGLint ctxattr[]={EGL_CONTEXT_CLIENT_VERSION,3,EGL_NONE};auto context=eglCreateContext(display,config,EGL_NO_CONTEXT,ctxattr);assert(context!=EGL_NO_CONTEXT);assert(eglMakeCurrent(display,surface,surface,context));
  glViewport(0,0,128,128);glDisable(GL_SCISSOR_TEST);glClearColor(.25f,.20f,.1f,1);glClear(GL_COLOR_BUFFER_BIT);glEnable(GL_BLEND);glColorMask(GL_TRUE,GL_FALSE,GL_TRUE,GL_TRUE);
  camera={0,0,0,1};cameraValid=true;cameraTime=Clock::now();running=true;light=true;status=1;
@@ -22,5 +22,9 @@ int main(){
  unsigned char left[4],right[4];glReadPixels(15,64,1,1,GL_RGBA,GL_UNSIGNED_BYTE,left);glReadPixels(113,64,1,1,GL_RGBA,GL_UNSIGNED_BYTE,right);assert(right[0]>left[0]);
  glClearColor(0,0,0,1);glClear(GL_COLOR_BUFFER_BIT);cameraTime=Clock::now();render();assert(frames==3);unsigned char black[4];glReadPixels(64,64,1,1,GL_RGBA,GL_UNSIGNED_BYTE,black);assert(black[0]==0&&black[1]==0&&black[2]==0);
  light=false;glClearColor(.1f,.1f,.1f,1);glClear(GL_COLOR_BUFFER_BIT);render();assert(frames==3);unsigned char off[4];glReadPixels(64,64,1,1,GL_RGBA,GL_UNSIGNED_BYTE,off);assert(off[0]>=24&&off[0]<=27);
+ // Exercise the render-thread boundary heuristic against a real software EGL context.
+ light=true;worldVisible=true;camera={0,0,0,1};cameraTime=Clock::now();glClearColor(.25f,.2f,.1f,1);glClear(GL_COLOR_BUFFER_BIT);passTracker.reset();glUseProgram(0);beforeClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);GLuint dummy=makeProgram();assert(dummy);glUseProgram(dummy);beforeClear(GL_DEPTH_BUFFER_BIT);assert(frames==4);beforeClear(GL_DEPTH_BUFFER_BIT);assert(frames==4);
+ // Menu/non-world frames and cropped scissors cannot trigger processing.
+ passTracker.reset();worldVisible=false;beforeClear(GL_COLOR_BUFFER_BIT);beforeClear(GL_DEPTH_BUFFER_BIT);assert(frames==4);worldVisible=true;glEnable(GL_SCISSOR_TEST);glScissor(0,0,32,32);passTracker.reset();beforeClear(GL_COLOR_BUFFER_BIT);beforeClear(GL_DEPTH_BUFFER_BIT);assert(frames==4);glDisable(GL_SCISSOR_TEST);glUseProgram(0);glDeleteProgram(dummy);
  assert(glGetError()==GL_NO_ERROR);renderer.release();eglMakeCurrent(display,EGL_NO_SURFACE,EGL_NO_SURFACE,EGL_NO_CONTEXT);eglDestroyContext(display,context);eglDestroySurface(display,surface);eglTerminate(display);
 }

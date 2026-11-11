@@ -3,7 +3,8 @@
 #include <stddef.h>
 #define LOG(...) __android_log_print(ANDROID_LOG_INFO,"FlashlightTest",__VA_ARGS__)
 extern "C" bool FLStart(); extern "C" bool FLStop(); extern "C" bool FLUnload();
-extern "C" void FLEnable(bool); extern "C" void FLSetting(int,float); extern "C" int FLStatus(); extern "C" unsigned FLFrames();
+extern "C" void FLEnable(bool); extern "C" void FLSetting(int,float); extern "C" int FLStatus(); extern "C" unsigned FLFrames(); extern "C" void FLWorldVisible(bool);
+static void jWorldVisible(JNIEnv*,jclass,jboolean b){FLWorldVisible(b==JNI_TRUE);}
 static void jEnable(JNIEnv*,jclass,jboolean b){FLEnable(b==JNI_TRUE);}
 static void jSetting(JNIEnv*,jclass,jint n,jfloat v){FLSetting(n,v);}
 static jint jStatus(JNIEnv*,jclass){return FLStatus();}
@@ -23,8 +24,9 @@ extern "C" __attribute__((visibility("default"))) bool PLMod_Load(JavaVM* vm,con
  JNINativeMethod methods[] = {{const_cast<char*>("setEnabled"),const_cast<char*>("(Z)V"),reinterpret_cast<void*>(jEnable)},
  {const_cast<char*>("setSetting"),const_cast<char*>("(IF)V"),reinterpret_cast<void*>(jSetting)},
  {const_cast<char*>("backendStatus"),const_cast<char*>("()I"),reinterpret_cast<void*>(jStatus)},
- {const_cast<char*>("frameCount"),const_cast<char*>("()I"),reinterpret_cast<void*>(jFrames)}};
- if(e->RegisterNatives(g_ui,methods,4)!=JNI_OK || clear(e,"RegisterNatives")) return false;
+ {const_cast<char*>("frameCount"),const_cast<char*>("()I"),reinterpret_cast<void*>(jFrames)},
+ {const_cast<char*>("setWorldVisible"),const_cast<char*>("(Z)V"),reinterpret_cast<void*>(jWorldVisible)}};
+ if(e->RegisterNatives(g_ui,methods,5)!=JNI_OK || clear(e,"RegisterNatives")) return false;
  LOG("Loaded UI bridge"); return g_ui!=nullptr;
 }
 static bool call(const char* n){JNIEnv* e=env();if(!e||!g_ui)return false;jmethodID m=e->GetStaticMethodID(g_ui,n,"()V");if(clear(e,n)||!m)return false;e->CallStaticVoidMethod(g_ui,m);return !clear(e,n);}

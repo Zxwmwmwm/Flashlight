@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 : "${R8_JAR:?Set D8 R8 jar path}"
 w=$(mktemp -d); trap 'rm -rf "$w"' EXIT
 mkdir -p "$w/classes" "$w/dex" artifacts
-javac -encoding UTF-8 -source 8 -target 8 -classpath "$ANDROID_JAR" -d "$w/classes" src/experiment/FlashlightTest.java
+javac -encoding UTF-8 -source 8 -target 8 -classpath "$ANDROID_JAR" -d "$w/classes" src/experiment/FlashlightTest.java src/experiment/UiPolicy.java
 (cd "$w/classes" && python3 -m zipfile -c "$w/ui.jar" flashlight)
 java -cp "$R8_JAR" com.android.tools.r8.D8 --min-api 26 --lib "$ANDROID_JAR" --output "$w/dex" "$w/ui.jar"
 python3 - "$w/dex/classes.dex" "$w/dex.cpp" <<'PY'

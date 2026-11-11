@@ -2,6 +2,7 @@
 // derived from MIT-licensed BedrockTools; see README.md (BedrockTools license section).
 #include "../probe/pattern.hpp"
 #include "../beam/lag.hpp"
+#include "../beam/pass_tracker.hpp"
 #include <EGL/egl.h>
 #include <GLES3/gl3.h>
 #include <android/log.h>
@@ -25,13 +26,17 @@ constexpr Target targets[]={
  {"RenderLevel",0xb7a38a0,"? ? ? D1 ? ? ? FD ? ? ? 6D ? ? ? 6D ? ? ? 6D ? ? ? A9 ? ? ? A9 ? ? ? A9 ? ? ? A9 ? ? ? A9 ? ? ? 91 57 D0 3B D5"},
  {"UpdatePlayerFromCamera",0x8a42820,"? ? ? D1 ? ? ? FD ? ? ? A9 ? ? ? F9 ? ? ? A9 ? ? ? A9 ? ? ? 91 54 D0 3B D5 ? ? ? 52"}
 };
-std::atomic<bool> running{false},light{false};std::atomic<int> status{0};std::atomic<unsigned> frames{0};
+std::atomic<bool> running{false},light{false},worldVisible{false};std::atomic<int> status{0};std::atomic<unsigned> frames{0},clearHits{0},candidateHits{0},cameraHits{0},swapHits{0};
 std::atomic<float> settings[10]={{1.f},{.93f},{.72f},{.62f},{.40f},{.55f},{.32f},{.50f},{.50f},{.25f}};
 std::mutex lifecycle, cameraMutex;std::thread worker;Quaternion camera{0,0,0,1};Clock::time_point cameraTime{};bool cameraValid=false;
 using Hook=int(*)(void*,void*,void**,int);using Unhook=bool(*)(void*,void*);
-Hook hook=nullptr;Unhook unhook=nullptr;void* preloader=nullptr;void* targetAddresses[2]={};bool installed[2]={};
-using RenderFn=void(*)(void*,void*,void*);using CameraFn=void(*)(void*,void*,void*);
-RenderFn originalRender=nullptr;CameraFn originalCamera=nullptr;
+Hook hook=nullptr;Unhook unhook=nullptr;void* preloader=nullptr;void* glLibrary=nullptr;void* eglLibrary=nullptr;
+void* hookTargets[6]={};void* hookDetours[6]={};bool installed[6]={};
+using CameraFn=void(*)(void*,void*,void*);CameraFn originalCamera=nullptr;
+using ClearFn=void(*)(GLbitfield);using ClearFvFn=void(*)(GLenum,GLint,const GLfloat*);using ClearFiFn=void(*)(GLenum,GLint,GLfloat,GLint);
+using SwapFn=EGLBoolean(*)(EGLDisplay,EGLSurface);
+ClearFn originalClear=nullptr;ClearFvFn originalClearFv=nullptr;ClearFiFn originalClearFi=nullptr;SwapFn originalSwap=nullptr;
+thread_local bool processing=false;thread_local PassTracker passTracker;thread_local EGLContext passContext=EGL_NO_CONTEXT;thread_local EGLSurface passSurface=EGL_NO_SURFACE;
 
 constexpr const char* VS=R"(#version 300 es
 precision highp float;out vec2 uv;
@@ -88,8 +93,7 @@ void render(){
  glUniform1i(glGetUniformLocation(renderer.program,"scene"),0);glUniform2f(glGetUniformLocation(renderer.program,"center"),px,py);glUniform1f(glGetUniformLocation(renderer.program,"aspect"),aspect);glUniform1f(glGetUniformLocation(renderer.program,"radius"),.08f+val(4)*.50f);glUniform1f(glGetUniformLocation(renderer.program,"softness"),val(5));glUniform1f(glGetUniformLocation(renderer.program,"strength"),val(3));glUniform1f(glGetUniformLocation(renderer.program,"ambient"),val(9));glUniform3f(glGetUniformLocation(renderer.program,"tint"),val(0),val(1),val(2));glDrawArrays(GL_TRIANGLES,0,3);
  if(glGetError()!=GL_NO_ERROR){__android_log_print(ANDROID_LOG_WARN,TAG,"Draw error; test frame may be incomplete");return;}if(status.exchange(3)!=3)__android_log_print(ANDROID_LOG_INFO,TAG,"Experimental GLES screen-space beam active; UI isolation is not yet verified");frames.fetch_add(1,std::memory_order_relaxed);
 }
-void renderHook(void* a,void* b,void* c){if(originalRender)originalRender(a,b,c);render();}
-void cameraHook(void* a,void* b,void* c){if(originalCamera)originalCamera(a,b,c);if(!running.load()||!light.load()||!a||!c)return;float v[4];std::memcpy(v,static_cast<unsigned char*>(a)+0x28,sizeof(v));Quaternion q{v[0],v[1],v[2],v[3]};double n=dot(q,q);if(!std::isfinite(n)||n<.5||n>1.5||!normalize(q))return;std::lock_guard<std::mutex> lock(cameraMutex);camera=q;cameraTime=Clock::now();cameraValid=true;}
+void cameraHook(void* a,void* b,void* c){if(originalCamera)originalCamera(a,b,c);if(!running.load()||!light.load()||!a||!c)return;float v[4];std::memcpy(v,static_cast<unsigned char*>(a)+0x28,sizeof(v));Quaternion q{v[0],v[1],v[2],v[3]};double n=dot(q,q);if(!std::isfinite(n)||n<.5||n>1.5||!normalize(q))return;std::lock_guard<std::mutex> lock(cameraMutex);camera=q;cameraTime=Clock::now();cameraValid=true;cameraHits.fetch_add(1,std::memory_order_relaxed);}
 struct Found{bool found=false,build=false,valid[2]={};std::uintptr_t base=0;};
 std::size_t align4(std::size_t x){return (x+3u)&~std::size_t(3u);}
 int inspect(dl_phdr_info* info,std::size_t,void* data){if(!info->dlpi_name||!std::strstr(info->dlpi_name,"libminecraftpe.so"))return 0;auto& out=*static_cast<Found*>(data);out.found=true;out.base=info->dlpi_addr;
@@ -97,20 +101,52 @@ int inspect(dl_phdr_info* info,std::size_t,void* data){if(!info->dlpi_name||!std
  if(!out.build)return 1;
  for(int i=0;i<2;i++){flashlight::probe::Pattern p;if(!flashlight::probe::parsePattern(targets[i].pattern,p))continue;for(ElfW(Half) j=0;j<info->dlpi_phnum;j++){auto& ph=info->dlpi_phdr[j];if(ph.p_type!=PT_LOAD||!(ph.p_flags&PF_R)||!(ph.p_flags&PF_X)||targets[i].rva<ph.p_vaddr)continue;auto off=targets[i].rva-ph.p_vaddr;if(off>ph.p_memsz||p.bytes.size()>ph.p_memsz-off)continue;out.valid[i]=flashlight::probe::countMatches(reinterpret_cast<const std::uint8_t*>(out.base+targets[i].rva),p.bytes.size(),p,1)==1;}}
  return 1;}
-void uninstall(){if(unhook){if(installed[1])unhook(targetAddresses[1],reinterpret_cast<void*>(cameraHook));if(installed[0])unhook(targetAddresses[0],reinterpret_cast<void*>(renderHook));}installed[0]=installed[1]=false;}
+void beforeClear(GLbitfield mask){
+ if(processing||!running.load(std::memory_order_relaxed)||!light.load(std::memory_order_relaxed)||!worldVisible.load(std::memory_order_relaxed))return;
+ clearHits.fetch_add(1,std::memory_order_relaxed);
+ if(!(mask&(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT)))return;
+ EGLContext context=eglGetCurrentContext();EGLSurface surface=eglGetCurrentSurface(EGL_DRAW);EGLDisplay display=eglGetCurrentDisplay();
+ if(context==EGL_NO_CONTEXT||surface==EGL_NO_SURFACE||display==EGL_NO_DISPLAY)return;
+ GLint major=0,v[4]={},depth=0;EGLint w=0,h=0;glGetIntegerv(GL_MAJOR_VERSION,&major);glGetIntegerv(GL_VIEWPORT,v);
+ if(major<3||!eglQuerySurface(display,surface,EGL_WIDTH,&w)||!eglQuerySurface(display,surface,EGL_HEIGHT,&h)||w<64||h<64||v[0]!=0||v[1]!=0||v[2]!=w||v[3]!=h)return;
+ if(glIsEnabled(GL_SCISSOR_TEST)){GLint sc[4]={};glGetIntegerv(GL_SCISSOR_BOX,sc);if(sc[0]>0||sc[1]>0||sc[0]+sc[2]<w||sc[1]+sc[3]<h)return;}
+ glGetIntegerv(GL_DEPTH_BITS,&depth);if(depth==0)return;
+ if(passContext!=context||passSurface!=surface){passTracker.reset();passContext=context;passSurface=surface;}
+ GLint framebuffer=0,program=0;glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,&framebuffer);glGetIntegerv(GL_CURRENT_PROGRAM,&program);
+ if(!passTracker.observe((mask&GL_COLOR_BUFFER_BIT)!=0,(mask&GL_DEPTH_BUFFER_BIT)!=0,framebuffer,program))return;
+ candidateHits.fetch_add(1,std::memory_order_relaxed);processing=true;render();processing=false;
+}
+void clearHook(GLbitfield mask){beforeClear(mask);if(originalClear)originalClear(mask);}
+void clearFvHook(GLenum buffer,GLint draw,const GLfloat* v){if(draw==0)beforeClear(buffer==GL_DEPTH?GL_DEPTH_BUFFER_BIT:buffer==GL_COLOR?GL_COLOR_BUFFER_BIT:0);if(originalClearFv)originalClearFv(buffer,draw,v);}
+void clearFiHook(GLenum buffer,GLint draw,GLfloat depth,GLint stencil){if(draw==0&&buffer==GL_DEPTH_STENCIL)beforeClear(GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);if(originalClearFi)originalClearFi(buffer,draw,depth,stencil);}
+EGLBoolean swapHook(EGLDisplay display,EGLSurface surface){
+ if(eglGetCurrentContext()==passContext&&surface==passSurface)passTracker.reset();
+ unsigned swaps=swapHits.fetch_add(1,std::memory_order_relaxed)+1;
+ if(swaps%300==0&&running.load()&&light.load())__android_log_print(ANDROID_LOG_INFO,TAG,"Graphics observations: hud=%d clears=%u candidates=%u camera=%u frames=%u",worldVisible.load()?1:0,clearHits.load(),candidateHits.load(),cameraHits.load(),frames.load());
+ return originalSwap?originalSwap(display,surface):EGL_FALSE;
+}
+void uninstall(){if(unhook)for(int i=5;i>=0;--i)if(installed[i]){unhook(hookTargets[i],hookDetours[i]);installed[i]=false;}}
 void work(){Found f;for(int i=0;i<600&&running.load();i++){dl_iterate_phdr(inspect,&f);if(f.found)break;std::this_thread::sleep_for(std::chrono::milliseconds(500));}if(!running.load())return;
  if(!f.found||!f.build||!f.valid[0]||!f.valid[1]){status.store(-1);__android_log_print(ANDROID_LOG_ERROR,TAG,"Unsupported game build or signatures; no hooks installed");return;}
- for(int i=0;i<2;i++)targetAddresses[i]=reinterpret_cast<void*>(f.base+targets[i].rva);
  hook=reinterpret_cast<Hook>(dlsym(RTLD_DEFAULT,"pl_hook"));unhook=reinterpret_cast<Unhook>(dlsym(RTLD_DEFAULT,"pl_unhook"));if(!hook||!unhook){preloader=dlopen("libpreloader.so",RTLD_NOW|RTLD_NOLOAD);if(preloader){hook=reinterpret_cast<Hook>(dlsym(preloader,"pl_hook"));unhook=reinterpret_cast<Unhook>(dlsym(preloader,"pl_unhook"));}}
  if(!hook||!unhook){status.store(-1);__android_log_print(ANDROID_LOG_ERROR,TAG,"Preloader hook API unavailable");return;}
- auto add=[&](int i,void* detour,void** orig){if(!running.load()||hook(targetAddresses[i],detour,orig,200)!=0||!*orig)return false;installed[i]=true;return true;};
- if(!add(0,reinterpret_cast<void*>(renderHook),reinterpret_cast<void**>(&originalRender))||!add(1,reinterpret_cast<void*>(cameraHook),reinterpret_cast<void**>(&originalCamera))){uninstall();status.store(-1);__android_log_print(ANDROID_LOG_ERROR,TAG,"Hook setup failed");return;}
- status.store(1);__android_log_print(ANDROID_LOG_INFO,TAG,"Hooks ready; experimental beam starts OFF");}
+ glLibrary=dlopen("libGLESv2.so",RTLD_NOW|RTLD_NOLOAD);eglLibrary=dlopen("libEGL.so",RTLD_NOW|RTLD_NOLOAD);
+ if(!glLibrary||!eglLibrary){status.store(-1);__android_log_print(ANDROID_LOG_ERROR,TAG,"OpenGL ES libraries not loaded; rendering path unavailable");return;}
+ auto add=[&](int i,void* address,void* detour,void** orig){if(!running.load()||!address||hook(address,detour,orig,200)!=0)return false;if(!*orig){unhook(address,detour);return false;}hookTargets[i]=address;hookDetours[i]=detour;installed[i]=true;return true;};
+ if(!add(0,reinterpret_cast<void*>(f.base+targets[1].rva),reinterpret_cast<void*>(cameraHook),reinterpret_cast<void**>(&originalCamera))||
+    !add(1,dlsym(glLibrary,"glClear"),reinterpret_cast<void*>(clearHook),reinterpret_cast<void**>(&originalClear))||
+    !add(2,dlsym(eglLibrary,"eglSwapBuffers"),reinterpret_cast<void*>(swapHook),reinterpret_cast<void**>(&originalSwap))){uninstall();status.store(-1);__android_log_print(ANDROID_LOG_ERROR,TAG,"Required render-thread hook setup failed");return;}
+ // Optional ES 3 clear functions are separate entry points on some devices.
+ if(!add(3,dlsym(glLibrary,"glClearBufferfv"),reinterpret_cast<void*>(clearFvHook),reinterpret_cast<void**>(&originalClearFv)))__android_log_print(ANDROID_LOG_WARN,TAG,"glClearBufferfv hook unavailable");
+ if(!add(4,dlsym(glLibrary,"glClearBufferfi"),reinterpret_cast<void*>(clearFiHook),reinterpret_cast<void**>(&originalClearFi)))__android_log_print(ANDROID_LOG_WARN,TAG,"glClearBufferfi hook unavailable");
+ status.store(1);__android_log_print(ANDROID_LOG_INFO,TAG,"Render-thread hooks ready; experimental beam starts OFF");}
 }
-extern "C" bool FLStart(){std::lock_guard<std::mutex> lock(lifecycle);if(running.exchange(true))return true;if(worker.joinable())worker.join();if(installed[0]&&installed[1]){status.store(1);return true;}status.store(0);try{worker=std::thread(work);}catch(...){running.store(false);status.store(-1);return false;}return true;}
+extern "C" bool FLStart(){std::lock_guard<std::mutex> lock(lifecycle);if(running.exchange(true))return true;if(worker.joinable())worker.join();if(installed[0]&&installed[1]&&installed[2]){status.store(1);return true;}status.store(0);try{worker=std::thread(work);}catch(...){running.store(false);status.store(-1);return false;}return true;}
 extern "C" bool FLStop(){std::lock_guard<std::mutex> lock(lifecycle);light.store(false);running.store(false);if(worker.joinable())worker.join();return true;}
-extern "C" bool FLUnload(){FLStop();uninstall();if(preloader){dlclose(preloader);preloader=nullptr;}return true;}
+extern "C" bool FLUnload(){FLStop();uninstall();if(preloader){dlclose(preloader);preloader=nullptr;}if(glLibrary){dlclose(glLibrary);glLibrary=nullptr;}if(eglLibrary){dlclose(eglLibrary);eglLibrary=nullptr;}return true;}
 extern "C" void FLEnable(bool b){if(status.load()>0&&running.load()){light.store(b);if(!b){std::lock_guard<std::mutex> lock(cameraMutex);cameraValid=false;}__android_log_print(ANDROID_LOG_INFO,TAG,"Beam %s",b?"on":"off");}}
 extern "C" void FLSetting(int i,float v){if(i>=0&&i<10&&std::isfinite(v))settings[i].store(std::fmax(0,std::fmin(1,v)));}
 extern "C" int FLStatus(){return status.load();}
 extern "C" unsigned FLFrames(){return frames.load();}
+
+extern "C" void FLWorldVisible(bool b){worldVisible.store(b,std::memory_order_release);}

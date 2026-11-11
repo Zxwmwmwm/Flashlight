@@ -6,3 +6,8 @@ c++ -std=c++17 -O2 -Wall -Wextra -Werror -Isrc tests/pattern_test.cpp -o "$tmp/p
 "$tmp/pattern_test"
 c++ -std=c++17 -O2 -Wall -Wextra -Werror -Isrc tests/lag_test.cpp -o "$tmp/lag_test"
 "$tmp/lag_test"
+c++ -std=c++17 -O2 -Wall -Wextra -Werror -Isrc tests/pass_tracker_test.cpp -o "$tmp/pass_tracker_test"
+"$tmp/pass_tracker_test"
+mkdir -p "$tmp/java"
+javac -encoding UTF-8 -d "$tmp/java" src/experiment/UiPolicy.java tests/UiPolicyTest.java
+java -cp "$tmp/java" flashlight.UiPolicyTest
