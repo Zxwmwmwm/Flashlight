@@ -1,0 +1,9 @@
+{
+  "type": "preload-native",
+  "name": "Flashlight Probe",
+  "author": "Zxwmwmwm",
+  "description": "Read-only diagnostic for Flashlight camera and world rendering research.",
+  "version": "0.1.0",
+  "entry": "libFlashlightProbe.so",
+  "minecraft_versions": ["1.26.62", "1.26.62.*"]
+}

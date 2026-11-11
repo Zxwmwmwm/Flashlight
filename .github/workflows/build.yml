@@ -1,0 +1,50 @@
+name: Build and test
+on:
+  push:
+    branches: [main]
+    tags: ['probe-v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run host tests
+        run: bash tests/run.sh
+      - uses: android-actions/setup-android@v3
+      - name: Install Android NDK r28c
+        run: sdkmanager 'ndk;28.2.13676358'
+      - name: Build ARM64 diagnostic package
+        env:
+          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/28.2.13676358
+        run: bash tools/build_probe.sh
+      - name: Validate package
+        run: |
+          unzip -t artifacts/Flashlight-Probe.levipack
+          "$ANDROID_HOME/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h artifacts/libFlashlightProbe.so | grep AArch64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Flashlight-probe-build
+          path: artifacts/Flashlight-Probe.levipack
+          if-no-files-found: error
+          retention-days: 7
+  release:
+    if: startsWith(github.ref, 'refs/tags/probe-v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Flashlight-probe-build
+          path: artifacts
+      - name: Publish diagnostic prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" artifacts/Flashlight-Probe.levipack --verify-tag --prerelease --title 'Flashlight diagnostic probe' --notes 'Read-only diagnostic build. This probe does not implement the flashlight effect.'
