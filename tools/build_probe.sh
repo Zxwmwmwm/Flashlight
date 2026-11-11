@@ -11,7 +11,8 @@ from zipfile import ZipFile, ZIP_DEFLATED
 with ZipFile('artifacts/Flashlight-Probe.levipack', 'w', ZIP_DEFLATED) as z:
     for source, target in [('src/probe/manifest.json', 'manifest.json'),
                            ('artifacts/libFlashlightProbe.so', 'libFlashlightProbe.so'),
-                           ('LICENSE', 'LICENSE'),
-                           ('third_party/BedrockTools/LICENSE', 'LICENSE-BedrockTools')]:
+                           ('LICENSE', 'LICENSE')]:
         z.write(source, target)
+    notice=open('README.md',encoding='utf-8').read().split('## BedrockTools license\n\n',1)[1]
+    z.writestr('LICENSE-BedrockTools',notice)
 PY

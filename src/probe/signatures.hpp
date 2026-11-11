@@ -1,6 +1,6 @@
 #pragma once
 
-// Signature patterns from BedrockTools, MIT licensed. See third_party/BedrockTools/LICENSE.
+// Signature patterns from BedrockTools, MIT licensed. See README.md (BedrockTools license section).
 namespace flashlight::probe {
 struct Signature { const char* name; const char* pattern; };
 inline constexpr Signature signatures[] = {

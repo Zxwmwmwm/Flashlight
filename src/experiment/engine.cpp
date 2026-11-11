@@ -1,5 +1,5 @@
 // Experimental, opt-in GLES post-process. Function signatures and camera offset
-// derived from MIT-licensed BedrockTools; see third_party/BedrockTools/LICENSE.
+// derived from MIT-licensed BedrockTools; see README.md (BedrockTools license section).
 #include "../probe/pattern.hpp"
 #include "../beam/lag.hpp"
 #include <EGL/egl.h>

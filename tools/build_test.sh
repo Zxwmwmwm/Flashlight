@@ -18,5 +18,6 @@ PY
 python3 - <<'PY'
 from zipfile import ZipFile,ZIP_DEFLATED
 with ZipFile('artifacts/Flashlight-Test.levipack','w',ZIP_DEFLATED) as z:
- for s,t in [('src/experiment/manifest.json','manifest.json'),('artifacts/libFlashlightTest.so','libFlashlightTest.so'),('LICENSE','LICENSE'),('third_party/BedrockTools/LICENSE','LICENSE-BedrockTools')]:z.write(s,t)
+ for s,t in [('src/experiment/manifest.json','manifest.json'),('artifacts/libFlashlightTest.so','libFlashlightTest.so'),('LICENSE','LICENSE')]:z.write(s,t)
+ z.writestr('LICENSE-BedrockTools',open('README.md',encoding='utf-8').read().split('## BedrockTools license\n\n',1)[1])
 PY
