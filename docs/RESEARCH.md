@@ -63,3 +63,12 @@ Two saved screen-space controls independently set the shaft origin from left to 
 ## 1.0.0 hotfix: visible sky shaft
 
 The user requested a shaft extending into open sky or long distances while keeping sky spotlight masking. The surface spotlight remains multiplied by the depth mask. When Visible cone is enabled, the stylized shaft is independent of that mask; at far depth it extends beyond the aim point. If depth is unavailable or masking is disabled, the extended profile is used everywhere. This is a screen-space approximation rather than physical volumetric lighting and can draw over intervening geometry. Host EGL tests cover conventional and reverse depth, sky spotlight masking, shaft extension, cone off, missing depth and masking off. Android visual results and occlusion remain device-dependent.
+
+
+## 1.0.0 hotfix 2: cone aim and package contents
+
+The user reported an incorrect shaft after repositioning the cone. The sky extension had been selected independently for each pixel, so sky behind a surface could extend the shaft past the actual spotlight. The shader now samples depth at the projected aim to decide whether the whole shaft extends; offscreen and missing-depth cases retain the extended profile. Software EGL tests include a mixed surface/sky scene, sky-only conventional and reverse depth, and the unavailable-depth fallback.
+
+The user also requested that the light follow the player in third person. The current hook supplies camera orientation only. Reliable player-anchored rendering would require validated local-player identity, player/camera positions, projection and view mode; candidate offsets in BedrockTools are not sufficient evidence of a safe ABI on this exact binary. This hotfix does not claim or implement player anchoring. It keeps the existing camera-relative behavior.
+
+Packaging now generates only manifest and native library, embedding complete Flashlight and BedrockTools MIT notices in a manifest field. The launcher source copies unknown manifest fields while normalizing; actual installation remains to be verified.

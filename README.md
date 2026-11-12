@@ -20,7 +20,7 @@ A customizable camera-following flashlight for LeviLauncher on Android ARM64, by
 
 ## Compatibility and limitations
 
-Flashlight uses a screen-space GLES effect, not physical world lighting. Its visible cone is a stylized overlay, not a held object or true volumetric beam. It cannot cast physical shadows, illuminate off-screen blocks, recover detail from completely black pixels, or reliably account for every occluding surface. Sky masking depends on a usable depth buffer and can misclassify sky or distant geometry. The visible cone is drawn across the sky as a stylized approximation and does not follow physical occlusion; without depth access, it uses the extended profile everywhere. Render order can also affect the hand or HUD, and other graphics backends may not support the effect.
+Flashlight uses a screen-space GLES effect, not physical world lighting. Its visible cone is a stylized overlay, not a held object or true volumetric beam. It cannot cast physical shadows, illuminate off-screen blocks, recover detail from completely black pixels, or reliably account for every occluding surface. Sky masking depends on a usable depth buffer and can misclassify sky or distant geometry. The visible cone uses the depth at the spotlight aim to decide whether to extend into the sky; it is a stylized approximation and does not follow physical occlusion. Without depth access, it uses the extended profile everywhere. In third person the effect remains camera-relative rather than attached to the player. Render order can also affect the hand or HUD, and other graphics backends may not support the effect.
 
 The mod uses native camera, GLES and EGL hooks, gated to the exact Android game library with GNU build ID `c60fa32908019eecae39ebfe7bac5755dc35cde2` and matching signatures, associated with the supplied 1.26.62 build. Similar version labels alone do not establish compatibility. The checks do not guarantee hook safety across devices or graphics configurations. If you encounter a crash or visual issue, disable the mod and restart Minecraft; logs are tagged `FlashlightTest`.
 
@@ -40,7 +40,7 @@ bash tools/build_test.sh
 bash tools/build_probe.sh
 ```
 
-Packages are generated under `artifacts/`, not committed to source. GitHub Actions runs tests and builds ARM64 packages. A `v*` tag publishes a regular release with `Flashlight.levipack` as the sole uploaded asset; `test-v*` and `probe-v*` tags publish their respective prereleases. The separate diagnostic probe scans signatures and logs match counts without rendering or installing hooks.
+Packages contain only the native `.so` and `manifest.json`; the required MIT notices are included in the manifest. Packages are generated under `artifacts/`, not committed to source. See [release notes](RELEASE_NOTES.md) for the latest changes. GitHub Actions runs tests and builds ARM64 packages. A `v*` tag publishes a regular release with `Flashlight.levipack` as the sole uploaded asset; `test-v*` and `probe-v*` tags publish their respective prereleases. The separate diagnostic probe scans signatures and logs match counts without rendering or installing hooks.
 
 ## Credits and license
 

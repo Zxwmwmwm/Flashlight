@@ -11,3 +11,4 @@ c++ -std=c++17 -O2 -Wall -Wextra -Werror -Isrc tests/pass_tracker_test.cpp -o "$
 mkdir -p "$tmp/java"
 javac -encoding UTF-8 -d "$tmp/java" src/experiment/UiPolicy.java tests/UiPolicyTest.java
 java -cp "$tmp/java" flashlight.UiPolicyTest
+python3 tests/package_test.py
