@@ -32,6 +32,7 @@ jobs:
           unzip -t artifacts/Flashlight-Probe.levipack
           unzip -t artifacts/Flashlight.levipack
           for f in artifacts/*.so; do "$ANDROID_HOME/ndk/28.2.13676358/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -h "$f" | grep AArch64; done
+          python3 -c 'from pathlib import Path; a=Path("LICENSE").read_bytes(); b=Path("README.md").read_text(encoding="utf-8").split("## BedrockTools license\n\n",1)[1].encode("utf-8"); files=list(Path("artifacts").glob("*.so")); assert files and all(a in f.read_bytes() and b in f.read_bytes() for f in files)'
       - uses: actions/upload-artifact@v4
         with:
           name: Flashlight-builds

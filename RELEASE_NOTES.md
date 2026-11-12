@@ -1,12 +1,12 @@
-# Flashlight 1.0.0 hotfix 3
+# Flashlight 1.0.0-hf4
 
 ## Changes
 
-- Added **Sky shaft only** and **Sky soft halo** controls. The first replaces the bright sky spotlight with a tapered shaft; the second replaces it with a softer ring around the aim. They are mutually exclusive, saved on the device, and off by default. Tap an active option again to return to the previous sky-mask behavior.
-- The visible cone now extends from the spotlight's aim toward the chosen **Cone horizontal end** and **Cone vertical end**, instead of projecting past the aim on the opposite side.
-- The sky looks use depth data even when **Sky masking** is off. They take precedence over the sky mask while active; surfaces keep the normal spotlight.
-- The package remains version `1.0.0` with `hf: true`, and contains only `manifest.json` and the native `.so`. MIT notices are embedded in the manifest.
+- Widened the visible shaft's taper to make it read more clearly as a cone, including at smaller beam-size settings. It continues to extend from the aim toward the selected cone end.
+- The hotfix suffix is now part of the manifest version string: `1.0.0-hf4`. There is no separate `hf` field.
+- The `.levipack` contains only `manifest.json` and the native `.so`. The manifest no longer contains license notices; the required notices are included in the native library and in the repository.
+- Sky shaft-only and soft-halo options, dark-world mode, cone positioning and saved controls remain available.
 
 ## Compatibility and limitations
 
-Sky detection depends on a usable depth buffer and may misidentify distant surfaces. If depth copying is unavailable, the panel reports **sky depth unavailable** and the new sky looks fall back to the ordinary spotlight rather than hiding the world. These are screen-space approximations, not volumetric lighting or physical occlusion. The light remains camera-relative in third person; player-position tracking is not implemented. See the README for compatibility details.
+The cone is a screen-space approximation rather than a volumetric light, and its appearance depends on screen position and graphics configuration. Sky looks depend on usable depth data; the panel reports when that data is unavailable. The light remains camera-relative in third person; player-position tracking is not implemented. See the README for compatibility details.

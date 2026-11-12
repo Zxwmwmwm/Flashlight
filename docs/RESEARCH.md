@@ -77,3 +77,8 @@ Packaging now generates only manifest and native library, embedding complete Fla
 ## 1.0.0 hotfix 3: sky looks and cone direction
 
 The user requested a sky shaft without a bright center and a soft-halo alternative, both selectable, and asked that the cone extend from the aim toward the selected position. The persisted mutually exclusive sky looks use depth independently of the sky mask: shaft-only removes the sky spot and enables a sky shaft; halo replaces the sky spot with an edge-weighted glow. Surfaces keep the original spotlight. When depth is unavailable the panel reports it and the modes revert to the ordinary spotlight; there is no reliable way to identify the sky in that fallback. The cone no longer extends past the aim opposite the chosen end. Software EGL tests cover sky and surface behavior, modes, both depth conventions, position changes and fallback. Device appearance and actual depth semantics remain to be verified. Third-person player anchoring remains unimplemented.
+
+
+## 1.0.0-hf4: cone shape and hotfix metadata
+
+The user found the sky shaft looked like a line. The screen-space cone now flares to a wider end, with a minimum width so small beam-size values retain a visible cone shape. EGL tests cover an off-axis pixel inside the wider shaft while checking the opposite side is unchanged; appearance still depends on positioning and needs device validation. The user clarified that the hotfix suffix belongs in the version string, so the manifest uses `1.0.0-hf4` without a separate `hf` field. License texts have been removed from the manifest; the build embeds the complete MIT notices in an exported readable native-library symbol to satisfy their distribution terms while keeping only the manifest and native library in the package.

@@ -66,7 +66,9 @@ void main(){
   vec2 axis=end-origin;float axisLen=length(axis);
   float along=dot(uv*vec2(aspect,1.0)-origin,axis)/max(dot(axis,axis),0.0001);
   float dist=length((uv*vec2(aspect,1.0)-origin)-axis*along);
-  float width=mix(0.008,max(0.025,min(0.22,coneRadius*0.65)),clamp(along,0.0,1.0));
+  // Give the shaft a readable flare, even at small beam-size settings.
+  float endWidth=min(0.42,0.09+coneRadius*0.8);
+  float width=mix(0.008,endWidth,clamp(along,0.0,1.0));
   float silhouette=1.0-smoothstep(width,width+max(0.015,width*0.35),dist);
   float lengthFade=smoothstep(0.0,0.08,along)*(1.0-smoothstep(0.85,1.08,along));
   float cone=silhouette*lengthFade*smoothstep(0.04,0.30,-direction.z)*smoothstep(0.02,0.12,axisLen);

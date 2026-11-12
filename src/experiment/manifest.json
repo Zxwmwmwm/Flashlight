@@ -3,11 +3,10 @@
   "name": "Flashlight",
   "author": "Zxwmwmwm",
   "description": "Customizable flashlight with a positionable visible cone, dark-world mode, and resizable controls.",
-  "version": "1.0.0",
+  "version": "1.0.0-hf4",
   "entry": "libFlashlightTest.so",
   "minecraft_versions": [
     "1.26.62",
     "1.26.62.*"
-  ],
-  "hf": true
+  ]
 }

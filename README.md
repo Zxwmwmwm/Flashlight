@@ -40,7 +40,7 @@ bash tools/build_test.sh
 bash tools/build_probe.sh
 ```
 
-Packages contain only the native `.so` and `manifest.json`; the required MIT notices are included in the manifest. Packages are generated under `artifacts/`, not committed to source. See [release notes](RELEASE_NOTES.md) for the latest changes. GitHub Actions runs tests and builds ARM64 packages. A `v*` tag publishes a regular release with `Flashlight.levipack` as the sole uploaded asset; `test-v*` and `probe-v*` tags publish their respective prereleases. The separate diagnostic probe scans signatures and logs match counts without rendering or installing hooks.
+Packages contain only the native `.so` and `manifest.json`; the required MIT notices are embedded in the native library as the readable `flashlight_license_notices` symbol, and are also available below and in `LICENSE`. Packages are generated under `artifacts/`, not committed to source. See [release notes](RELEASE_NOTES.md) for the latest changes. GitHub Actions runs tests and builds ARM64 packages. A `v*` tag publishes a regular release with `Flashlight.levipack` as the sole uploaded asset; `test-v*` and `probe-v*` tags publish their respective prereleases. The separate diagnostic probe scans signatures and logs match counts without rendering or installing hooks.
 
 ## Credits and license
 

@@ -14,5 +14,6 @@ import sys
 b=open(sys.argv[1],'rb').read()
 with open(sys.argv[2],'w') as f:f.write('extern const unsigned char dex_data[] = {'+','.join(map(str,b))+'};\nextern const unsigned int dex_len = '+str(len(b))+';\n')
 PY
-"$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" -std=c++17 -O2 -Wall -Wextra -Werror -fPIC -shared -Wl,-z,max-page-size=16384 src/experiment/loader.cpp src/experiment/engine.cpp "$w/dex.cpp" -llog -ldl -lEGL -lGLESv3 -static-libstdc++ -o artifacts/libFlashlightTest.so
+python3 tools/embed_notices.py "$w/notices.cpp"
+"$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" -std=c++17 -O2 -Wall -Wextra -Werror -fPIC -shared -Wl,-z,max-page-size=16384 src/experiment/loader.cpp src/experiment/engine.cpp "$w/dex.cpp" "$w/notices.cpp" -llog -ldl -lEGL -lGLESv3 -static-libstdc++ -o artifacts/libFlashlightTest.so
 python3 tools/package.py src/experiment/manifest.json artifacts/libFlashlightTest.so artifacts/Flashlight.levipack
