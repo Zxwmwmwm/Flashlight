@@ -5,7 +5,7 @@ A customizable camera-following flashlight for LeviLauncher on Android ARM64, by
 ## Features
 
 - Soft adjustable spotlight with color, brightness, size, softness, position and camera-follow delay.
-- Optional **Visible cone** with independent horizontal and vertical origin sliders. Its color and strength follow the main beam.
+- Optional **Visible cone** with independent horizontal and vertical origin sliders. Its color and strength follow the main beam, and the shaft extends across the sky.
 - Optional **Dark world** mode with a separate brightness control.
 - Optional depth-based **Sky masking**, enabled by default.
 - Movable, resizable control panel and optional pause-only controls. Settings are saved on the device.
@@ -15,12 +15,12 @@ A customizable camera-following flashlight for LeviLauncher on Android ARM64, by
 1. Download `Flashlight.levipack` from the [latest release](https://github.com/Zxwmwmwm/Flashlight/releases/latest), import it into LeviLauncher and enable it. Disable earlier Flashlight test or probe builds and other rendering-hook mods before trying this release.
 2. Enter a world, tap the floating **FL** button, then **Turn beam on**. The beam starts off each time the mod starts and runs only when the launcher reports the gameplay HUD.
 3. Turn **Visible cone** on to show the light shaft. Use **Cone horizontal origin** (left to right) and **Cone vertical origin** (top to bottom) to move where it begins. The separately labeled **Beam** position sliders move the spotlight aim. The cone defaults to the lower-right and is off until enabled.
-4. Use the other sliders to customize the beam. Turn on **Dark world** to use the saved dark-world brightness. Use **Sky masking** to reduce light on far-background pixels; turn it off if it hides the beam incorrectly. When depth copying is unavailable, the panel reports it and rendering continues without the mask.
+4. Use the other sliders to customize the beam. Turn on **Dark world** to use the saved dark-world brightness. Use **Sky masking** to suppress the spotlight on far-background pixels while keeping the visible cone in the sky; turn it off if it hides the spotlight incorrectly. When depth copying is unavailable, the panel reports it and rendering continues without the mask.
 5. Drag the panel by its title, resize it with **↘ RESIZE**, and optionally enable **Pause-only controls**. Pause the game to reveal controls again; if pause detection is unavailable, controls stay accessible.
 
 ## Compatibility and limitations
 
-Flashlight uses a screen-space GLES effect, not physical world lighting. Its visible cone is a stylized overlay, not a held object or true volumetric beam. It cannot cast physical shadows, illuminate off-screen blocks, recover detail from completely black pixels, or reliably account for every occluding surface. Sky masking depends on a usable depth buffer and can misclassify sky or distant geometry. Render order can also affect the hand or HUD, and other graphics backends may not support the effect.
+Flashlight uses a screen-space GLES effect, not physical world lighting. Its visible cone is a stylized overlay, not a held object or true volumetric beam. It cannot cast physical shadows, illuminate off-screen blocks, recover detail from completely black pixels, or reliably account for every occluding surface. Sky masking depends on a usable depth buffer and can misclassify sky or distant geometry. The visible cone is drawn across the sky as a stylized approximation and does not follow physical occlusion; without depth access, it uses the extended profile everywhere. Render order can also affect the hand or HUD, and other graphics backends may not support the effect.
 
 The mod uses native camera, GLES and EGL hooks, gated to the exact Android game library with GNU build ID `c60fa32908019eecae39ebfe7bac5755dc35cde2` and matching signatures, associated with the supplied 1.26.62 build. Similar version labels alone do not establish compatibility. The checks do not guarantee hook safety across devices or graphics configurations. If you encounter a crash or visual issue, disable the mod and restart Minecraft; logs are tagged `FlashlightTest`.
 

@@ -58,3 +58,8 @@ The user reported the 0.2.0 hotfix was working and requested a switchable visibl
 ## 1.0.0: cone origin controls
 
 Two saved screen-space controls independently set the shaft origin from left to right and top to bottom, defaulting to the previous lower-right position. Existing beam-position controls still adjust the spotlight aim separately. Software EGL tests cover changes to both axes. These controls and their appearance require real-device validation; the same screen-space and depth-buffer limitations continue to apply.
+
+
+## 1.0.0 hotfix: visible sky shaft
+
+The user requested a shaft extending into open sky or long distances while keeping sky spotlight masking. The surface spotlight remains multiplied by the depth mask. When Visible cone is enabled, the stylized shaft is independent of that mask; at far depth it extends beyond the aim point. If depth is unavailable or masking is disabled, the extended profile is used everywhere. This is a screen-space approximation rather than physical volumetric lighting and can draw over intervening geometry. Host EGL tests cover conventional and reverse depth, sky spotlight masking, shaft extension, cone off, missing depth and masking off. Android visual results and occlusion remain device-dependent.

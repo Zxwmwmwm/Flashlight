@@ -62,10 +62,15 @@ void main(){
   vec2 axis=aim-origin;float axisLen=length(axis);
   float along=dot(uv*vec2(aspect,1.0)-origin,axis)/max(dot(axis,axis),0.0001);
   float dist=length((uv*vec2(aspect,1.0)-origin)-axis*along);
-  float width=mix(0.008,max(0.025,min(0.22,coneRadius*0.65)),clamp(along,0.0,1.0));
+  // At far/sky depth extend the shaft past the aim point, while keeping
+  // the surface spotlight masked. With no depth copy, use the sky profile.
+  float farBackground=depthAvailable>0.5?1.0-worldMask:1.0;
+  float width=mix(0.008,max(0.025,min(0.22,coneRadius*0.65)),clamp(along,0.0,mix(1.0,2.5,farBackground)));
   float silhouette=1.0-smoothstep(width,width+max(0.015,width*0.35),dist);
-  float lengthFade=smoothstep(0.0,0.08,along)*(1.0-smoothstep(0.85,1.08,along));
-  float cone=silhouette*lengthFade*smoothstep(0.04,0.30,-direction.z)*smoothstep(0.02,0.12,axisLen)*worldMask;
+  float surfaceEnd=1.0-smoothstep(0.85,1.08,along);
+  float skyEnd=1.0-smoothstep(2.4,3.0,along);
+  float lengthFade=smoothstep(0.0,0.08,along)*mix(surfaceEnd,skyEnd,farBackground);
+  float cone=silhouette*lengthFade*smoothstep(0.04,0.30,-direction.z)*smoothstep(0.02,0.12,axisLen);
   lit+=tint*cone*strength*0.14;
  }
  outputColor=vec4(clamp(lit,0.0,1.0),source.a);
