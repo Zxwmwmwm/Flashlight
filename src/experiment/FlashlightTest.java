@@ -33,7 +33,7 @@ public final class FlashlightTest {
     private static final int ACCENT=0xffbba8ff,TEXT=0xfff4f3ff,MUTED=0xffabaec2;
     private static final String[] NAMES={"Red","Green","Blue","Strength","Beam size","Softness","Follow delay","Horizontal position","Vertical position","Dark-world brightness"};
     private static final float[] DEFAULT={1f,.93f,.72f,.62f,.40f,.55f,.32f,.50f,.50f,.25f};
-    private static boolean active,light,pauseOnly,paused,pauseKnown,darkWorld,skyMask;
+    private static boolean active,light,pauseOnly,paused,pauseKnown,darkWorld,skyMask,visibleCone;
     private static Activity activity;private static OverlayRoot root;private static View panel;private static TextView bubble,status,toggle,pauseToggle,darkToggle;private static SeekBar ambientSlider;
     private static SharedPreferences prefs;private static Method pauseMethod,hudMethod,menuMethod;private static boolean inputLookupDone;
     private static int dp(Context a,float v){return (int)(v*a.getResources().getDisplayMetrics().density+.5f);}
@@ -96,7 +96,7 @@ public final class FlashlightTest {
         setSetting(9,UiPolicy.effectiveAmbient(darkWorld,value));
     }
     private static void attach(final Activity a){
-        detach();activity=a;prefs=a.getSharedPreferences("flashlight_test_settings",0);pauseOnly=prefs.getBoolean("pauseOnly",false);darkWorld=prefs.getBoolean("darkWorld",false);skyMask=prefs.getBoolean("skyMask",true);setSetting(10,skyMask?1f:0f);root=new OverlayRoot(a,prefs);
+        detach();activity=a;prefs=a.getSharedPreferences("flashlight_test_settings",0);pauseOnly=prefs.getBoolean("pauseOnly",false);darkWorld=prefs.getBoolean("darkWorld",false);skyMask=prefs.getBoolean("skyMask",true);visibleCone=prefs.getBoolean("visibleCone",false);setSetting(10,skyMask?1f:0f);setSetting(11,visibleCone?1f:0f);root=new OverlayRoot(a,prefs);
         final LinearLayout sheet=new LinearLayout(a);panel=sheet;root.sheet=sheet;sheet.setOrientation(LinearLayout.VERTICAL);sheet.setBackground(bg(0xf51b1c29,18,a));sheet.setClipToOutline(true);sheet.setVisibility(View.GONE);
         FrameLayout.LayoutParams pp=new FrameLayout.LayoutParams(dp(a,320),dp(a,320),Gravity.LEFT|Gravity.TOP);root.addView(sheet,pp);
         LinearLayout header=new LinearLayout(a);header.setOrientation(LinearLayout.HORIZONTAL);header.setGravity(Gravity.CENTER_VERTICAL);header.setPadding(dp(a,16),dp(a,12),dp(a,12),dp(a,8));sheet.addView(header);
@@ -119,6 +119,8 @@ public final class FlashlightTest {
         darkToggle.setOnClickListener(new View.OnClickListener(){public void onClick(View v){darkWorld=!darkWorld;prefs.edit().putBoolean("darkWorld",darkWorld).apply();updateDarkWorld();}});
         final TextView skyToggle=action(a,"Sky masking   "+(skyMask?"ON":"OFF"),0xff343546);LinearLayout.LayoutParams skyParams=new LinearLayout.LayoutParams(-1,-2);skyParams.topMargin=dp(a,8);body.addView(skyToggle,skyParams);
         skyToggle.setOnClickListener(new View.OnClickListener(){public void onClick(View v){skyMask=!skyMask;prefs.edit().putBoolean("skyMask",skyMask).apply();setSetting(10,skyMask?1f:0f);skyToggle.setText("Sky masking   "+(skyMask?"ON":"OFF"));}});
+        final TextView coneToggle=action(a,"Visible cone   "+(visibleCone?"ON":"OFF"),0xff343546);LinearLayout.LayoutParams coneParams=new LinearLayout.LayoutParams(-1,-2);coneParams.topMargin=dp(a,8);body.addView(coneToggle,coneParams);
+        coneToggle.setOnClickListener(new View.OnClickListener(){public void onClick(View v){visibleCone=!visibleCone;prefs.edit().putBoolean("visibleCone",visibleCone).apply();setSetting(11,visibleCone?1f:0f);coneToggle.setText("Visible cone   "+(visibleCone?"ON":"OFF"));}});
         for(int i=0;i<NAMES.length;i++){
             final int id=i;float value=Math.max(0,Math.min(1,prefs.getFloat("setting"+i,DEFAULT[i])));if(i!=9)setSetting(i,value);
             LinearLayout row=new LinearLayout(a);row.setOrientation(LinearLayout.VERTICAL);row.setPadding(0,dp(a,7),0,0);body.addView(row);

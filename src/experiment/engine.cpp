@@ -27,7 +27,7 @@ constexpr Target targets[]={
  {"UpdatePlayerFromCamera",0x8a42820,"? ? ? D1 ? ? ? FD ? ? ? A9 ? ? ? F9 ? ? ? A9 ? ? ? A9 ? ? ? 91 54 D0 3B D5 ? ? ? 52"}
 };
 std::atomic<bool> running{false},light{false},worldVisible{false};std::atomic<int> status{0};std::atomic<unsigned> frames{0},clearHits{0},candidateHits{0},cameraHits{0},swapHits{0};
-std::atomic<float> settings[11]={{1.f},{.93f},{.72f},{.62f},{.40f},{.55f},{.32f},{.50f},{.50f},{.25f},{1.f}};
+std::atomic<float> settings[12]={{1.f},{.93f},{.72f},{.62f},{.40f},{.55f},{.32f},{.50f},{.50f},{.25f},{1.f},{0.f}};
 std::mutex lifecycle, cameraMutex;std::thread worker;Quaternion camera{0,0,0,1};Clock::time_point cameraTime{};bool cameraValid=false;
 using Hook=int(*)(void*,void*,void**,int);using Unhook=bool(*)(void*,void*);
 Hook hook=nullptr;Unhook unhook=nullptr;void* preloader=nullptr;void* glLibrary=nullptr;void* eglLibrary=nullptr;
@@ -45,13 +45,29 @@ constexpr const char* FS=R"(#version 300 es
 precision highp float;precision highp sampler2D;in vec2 uv;layout(location=0) out vec4 outputColor;
 uniform sampler2D scene;uniform sampler2D sceneDepth;uniform vec2 center;uniform vec3 direction;
 uniform float aspect;uniform float innerCos;uniform float outerCos;uniform float strength;uniform float ambient;uniform vec3 tint;
-uniform float depthAvailable;uniform float reversedDepth;
+uniform float depthAvailable;uniform float reversedDepth;uniform float coneEnabled;uniform float coneRadius;
 void main(){
  vec4 source=texture(scene,uv);
  vec3 ray=normalize(vec3((uv-center)*vec2(aspect,1.0)*1.4,-1.0));
  float beam=smoothstep(outerCos,innerCos,dot(ray,direction));
- if(depthAvailable>0.5){float d=texture(sceneDepth,uv).r;float nearDepth=mix(d,1.0-d,reversedDepth);beam*=1.0-smoothstep(0.99980,0.99998,nearDepth);}
+ float worldMask=1.0;
+ if(depthAvailable>0.5){float d=texture(sceneDepth,uv).r;float nearDepth=mix(d,1.0-d,reversedDepth);worldMask=1.0-smoothstep(0.99980,0.99998,nearDepth);}
+ beam*=worldMask;
  vec3 lit=source.rgb*(ambient+beam*strength*3.0*tint);
+ if(coneEnabled>0.5){
+  // Stylized screen-space shaft, not volumetric geometry or a held item.
+  vec2 origin=vec2(0.94,0.08)*vec2(aspect,1.0);
+  vec2 aim=center+direction.xy/(vec2(aspect,1.0)*1.4*max(0.12,-direction.z));
+  aim=clamp(aim,vec2(-2.5),vec2(3.5))*vec2(aspect,1.0);
+  vec2 axis=aim-origin;float axisLen=length(axis);
+  float along=dot(uv*vec2(aspect,1.0)-origin,axis)/max(dot(axis,axis),0.0001);
+  float dist=length((uv*vec2(aspect,1.0)-origin)-axis*along);
+  float width=mix(0.008,max(0.025,min(0.22,coneRadius*0.65)),clamp(along,0.0,1.0));
+  float silhouette=1.0-smoothstep(width,width+max(0.015,width*0.35),dist);
+  float lengthFade=smoothstep(0.0,0.08,along)*(1.0-smoothstep(0.85,1.08,along));
+  float cone=silhouette*lengthFade*smoothstep(0.04,0.30,-direction.z)*smoothstep(0.02,0.12,axisLen)*worldMask;
+  lit+=tint*cone*strength*0.14;
+ }
  outputColor=vec4(clamp(lit,0.0,1.0),source.a);
 })";
 GLuint makeShader(GLenum type,const char* src){GLuint s=glCreateShader(type);if(!s)return 0;glShaderSource(s,1,&src,nullptr);glCompileShader(s);GLint ok=0;glGetShaderiv(s,GL_COMPILE_STATUS,&ok);if(ok)return s;char msg[512]={};glGetShaderInfoLog(s,sizeof(msg),nullptr,msg);__android_log_print(ANDROID_LOG_ERROR,TAG,"Shader compile: %s",msg);glDeleteShader(s);return 0;}
@@ -119,7 +135,7 @@ void render(){
  glBindFramebuffer(GL_DRAW_FRAMEBUFFER,framebuffer);glViewport(0,0,w,h);glUseProgram(renderer.program);glBindVertexArray(renderer.vao);glActiveTexture(GL_TEXTURE0);glBindTexture(GL_TEXTURE_2D,renderer.texture);glActiveTexture(GL_TEXTURE1);glBindTexture(GL_TEXTURE_2D,depthCopied?renderer.depthTexture:renderer.texture);
  glUniform1i(glGetUniformLocation(renderer.program,"scene"),0);glUniform1i(glGetUniformLocation(renderer.program,"sceneDepth"),1);
  glUniform2f(glGetUniformLocation(renderer.program,"center"),px,py);glUniform3f(glGetUniformLocation(renderer.program,"direction"),dir.x,dir.y,dir.z);glUniform1f(glGetUniformLocation(renderer.program,"aspect"),aspect);
- glUniform1f(glGetUniformLocation(renderer.program,"innerCos"),innerCos);glUniform1f(glGetUniformLocation(renderer.program,"outerCos"),outerCos);glUniform1f(glGetUniformLocation(renderer.program,"strength"),val(3));glUniform1f(glGetUniformLocation(renderer.program,"ambient"),val(9));glUniform3f(glGetUniformLocation(renderer.program,"tint"),val(0),val(1),val(2));glUniform1f(glGetUniformLocation(renderer.program,"depthAvailable"),depthCopied?1.f:0.f);glUniform1f(glGetUniformLocation(renderer.program,"reversedDepth"),clearDepth<.5f?1.f:0.f);glDrawArrays(GL_TRIANGLES,0,3);
+ glUniform1f(glGetUniformLocation(renderer.program,"innerCos"),innerCos);glUniform1f(glGetUniformLocation(renderer.program,"outerCos"),outerCos);glUniform1f(glGetUniformLocation(renderer.program,"strength"),val(3));glUniform1f(glGetUniformLocation(renderer.program,"ambient"),val(9));glUniform3f(glGetUniformLocation(renderer.program,"tint"),val(0),val(1),val(2));glUniform1f(glGetUniformLocation(renderer.program,"depthAvailable"),depthCopied?1.f:0.f);glUniform1f(glGetUniformLocation(renderer.program,"reversedDepth"),clearDepth<.5f?1.f:0.f);glUniform1f(glGetUniformLocation(renderer.program,"coneEnabled"),val(11));glUniform1f(glGetUniformLocation(renderer.program,"coneRadius"),radius);glDrawArrays(GL_TRIANGLES,0,3);
  if(glGetError()!=GL_NO_ERROR){__android_log_print(ANDROID_LOG_WARN,TAG,"Draw error; test frame may be incomplete");return;}int state=maskRequested&&!depthCopied?4:3;if(status.exchange(state)!=state)__android_log_print(ANDROID_LOG_INFO,TAG,"Experimental beam active; sky mask %s",!maskRequested?"off":depthCopied?"available":"unavailable");frames.fetch_add(1,std::memory_order_relaxed);
 }
 void cameraHook(void* a,void* b,void* c){if(originalCamera)originalCamera(a,b,c);if(!running.load()||!light.load()||!a||!c)return;float v[4];std::memcpy(v,static_cast<unsigned char*>(a)+0x28,sizeof(v));Quaternion q{v[0],v[1],v[2],v[3]};double n=dot(q,q);if(!std::isfinite(n)||n<.5||n>1.5||!normalize(q))return;std::lock_guard<std::mutex> lock(cameraMutex);camera=q;cameraTime=Clock::now();cameraValid=true;cameraHits.fetch_add(1,std::memory_order_relaxed);}
@@ -174,7 +190,7 @@ extern "C" bool FLStart(){std::lock_guard<std::mutex> lock(lifecycle);if(running
 extern "C" bool FLStop(){std::lock_guard<std::mutex> lock(lifecycle);light.store(false);running.store(false);if(worker.joinable())worker.join();return true;}
 extern "C" bool FLUnload(){FLStop();uninstall();if(preloader){dlclose(preloader);preloader=nullptr;}if(glLibrary){dlclose(glLibrary);glLibrary=nullptr;}if(eglLibrary){dlclose(eglLibrary);eglLibrary=nullptr;}return true;}
 extern "C" void FLEnable(bool b){if(status.load()>0&&running.load()){light.store(b);if(!b){std::lock_guard<std::mutex> lock(cameraMutex);cameraValid=false;}__android_log_print(ANDROID_LOG_INFO,TAG,"Beam %s",b?"on":"off");}}
-extern "C" void FLSetting(int i,float v){if(i>=0&&i<11&&std::isfinite(v))settings[i].store(std::fmax(0,std::fmin(1,v)));}
+extern "C" void FLSetting(int i,float v){if(i>=0&&i<12&&std::isfinite(v))settings[i].store(std::fmax(0,std::fmin(1,v)));}
 extern "C" int FLStatus(){return status.load();}
 extern "C" unsigned FLFrames(){return frames.load();}
 

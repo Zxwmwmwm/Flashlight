@@ -2,12 +2,11 @@
   "type": "preload-native",
   "name": "Flashlight Test",
   "author": "Zxwmwmwm",
-  "description": "Customizable camera-following flashlight with dark-world mode and a movable, resizable panel.",
-  "version": "0.2.0",
+  "description": "Camera-following flashlight with optional visible cone, dark-world mode, and resizable controls.",
+  "version": "0.3.0",
   "entry": "libFlashlightTest.so",
   "minecraft_versions": [
     "1.26.62",
     "1.26.62.*"
-  ],
-  "hf": true
+  ]
 }
