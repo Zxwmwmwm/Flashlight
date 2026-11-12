@@ -33,8 +33,8 @@ public final class FlashlightTest {
     private static final int ACCENT=0xffbba8ff,TEXT=0xfff4f3ff,MUTED=0xffabaec2;
     private static final String[] NAMES={"Red","Green","Blue","Strength","Beam size","Softness","Follow delay","Beam horizontal position","Beam vertical position","Dark-world brightness"};
     private static final float[] DEFAULT={1f,.93f,.72f,.62f,.40f,.55f,.32f,.50f,.50f,.25f};
-    private static boolean active,light,pauseOnly,paused,pauseKnown,darkWorld,skyMask,visibleCone;
-    private static Activity activity;private static OverlayRoot root;private static View panel;private static TextView bubble,status,toggle,pauseToggle,darkToggle;private static SeekBar ambientSlider;
+    private static boolean active,light,pauseOnly,paused,pauseKnown,darkWorld,skyMask,visibleCone;private static int skyLook;
+    private static Activity activity;private static OverlayRoot root;private static View panel;private static TextView bubble,status,toggle,pauseToggle,darkToggle,skyShaftToggle,skyHaloToggle;private static SeekBar ambientSlider;
     private static SharedPreferences prefs;private static Method pauseMethod,hudMethod,menuMethod;private static boolean inputLookupDone;
     private static int dp(Context a,float v){return (int)(v*a.getResources().getDisplayMetrics().density+.5f);}
     private static GradientDrawable bg(int color,int radius,Context a){GradientDrawable d=new GradientDrawable();d.setColor(color);d.setCornerRadius(dp(a,radius));return d;}
@@ -57,12 +57,12 @@ public final class FlashlightTest {
         if(!active)return;
         try{Class<?> c=Class.forName("org.levimc.launcher.core.mods.inbuilt.overlay.InbuiltOverlayManager");Object m=c.getMethod("getInstance").invoke(null);if(m!=null){Field f=c.getDeclaredField("activity");f.setAccessible(true);Activity a=(Activity)f.get(m);if(a!=null&&!a.isFinishing()&&a!=activity)attach(a);}}catch(Throwable ignored){}
         queryScreen();updateVisibility();
-        if(status!=null){int s=backendStatus();status.setText(s<0?"Unavailable • check FlashlightTest log":s==0?"Connecting to Minecraft…":s==1?"Ready • enable beam in a world":s==2?"Waiting for a compatible world pass":s==4?"Rendering • sky mask unavailable":"Rendering • "+frameCount()+" frames");if(toggle!=null)toggle.setEnabled(s>0);}
+        if(status!=null){int s=backendStatus();status.setText(s<0?"Unavailable • check FlashlightTest log":s==0?"Connecting to Minecraft…":s==1?"Ready • enable beam in a world":s==2?"Waiting for a compatible world pass":s==4?"Rendering • sky depth unavailable":"Rendering • "+frameCount()+" frames");if(toggle!=null)toggle.setEnabled(s>0);}
         MAIN.postDelayed(this,200);
     }};
     public static void start(){MAIN.post(new Runnable(){public void run(){if(active)return;active=true;monitor.run();}});}
     public static void stop(){final java.util.concurrent.CountDownLatch done=new java.util.concurrent.CountDownLatch(1);Runnable task=new Runnable(){public void run(){try{active=false;light=false;MAIN.removeCallbacks(monitor);detach();}finally{done.countDown();}}};if(Looper.myLooper()==Looper.getMainLooper())task.run();else{MAIN.post(task);try{done.await();}catch(InterruptedException e){Thread.currentThread().interrupt();}}}
-    private static void detach(){if(root!=null&&root.getParent() instanceof ViewGroup)((ViewGroup)root.getParent()).removeView(root);root=null;panel=null;bubble=null;status=null;toggle=null;pauseToggle=null;darkToggle=null;ambientSlider=null;activity=null;prefs=null;}
+    private static void detach(){if(root!=null&&root.getParent() instanceof ViewGroup)((ViewGroup)root.getParent()).removeView(root);root=null;panel=null;bubble=null;status=null;toggle=null;pauseToggle=null;darkToggle=null;skyShaftToggle=null;skyHaloToggle=null;ambientSlider=null;activity=null;prefs=null;}
     private static final class OverlayRoot extends FrameLayout {
         View sheet; final SharedPreferences positionPrefs; final int margin,minWidth,minHeight;
         OverlayRoot(Context c,SharedPreferences p){super(c);positionPrefs=p;margin=dp(c,12);minWidth=dp(c,230);minHeight=dp(c,160);setClipChildren(true);setClipToPadding(true);}
@@ -95,8 +95,13 @@ public final class FlashlightTest {
         float value=prefs==null?.25f:prefs.getFloat("setting9",.25f);
         setSetting(9,UiPolicy.effectiveAmbient(darkWorld,value));
     }
+    private static void setSkyLook(int mode){
+        skyLook=Math.max(0,Math.min(2,mode));if(prefs!=null)prefs.edit().putInt("skyLook",skyLook).apply();setSetting(14,skyLook/2f);
+        if(skyShaftToggle!=null)skyShaftToggle.setText("Sky shaft only   "+(skyLook==1?"ON":"OFF"));
+        if(skyHaloToggle!=null)skyHaloToggle.setText("Sky soft halo   "+(skyLook==2?"ON":"OFF"));
+    }
     private static void attach(final Activity a){
-        detach();activity=a;prefs=a.getSharedPreferences("flashlight_test_settings",0);pauseOnly=prefs.getBoolean("pauseOnly",false);darkWorld=prefs.getBoolean("darkWorld",false);skyMask=prefs.getBoolean("skyMask",true);visibleCone=prefs.getBoolean("visibleCone",false);setSetting(10,skyMask?1f:0f);setSetting(11,visibleCone?1f:0f);root=new OverlayRoot(a,prefs);
+        detach();activity=a;prefs=a.getSharedPreferences("flashlight_test_settings",0);pauseOnly=prefs.getBoolean("pauseOnly",false);darkWorld=prefs.getBoolean("darkWorld",false);skyMask=prefs.getBoolean("skyMask",true);visibleCone=prefs.getBoolean("visibleCone",false);skyLook=Math.max(0,Math.min(2,prefs.getInt("skyLook",0)));setSetting(10,skyMask?1f:0f);setSetting(11,visibleCone?1f:0f);setSetting(14,skyLook/2f);root=new OverlayRoot(a,prefs);
         final LinearLayout sheet=new LinearLayout(a);panel=sheet;root.sheet=sheet;sheet.setOrientation(LinearLayout.VERTICAL);sheet.setBackground(bg(0xf51b1c29,18,a));sheet.setClipToOutline(true);sheet.setVisibility(View.GONE);
         FrameLayout.LayoutParams pp=new FrameLayout.LayoutParams(dp(a,320),dp(a,320),Gravity.LEFT|Gravity.TOP);root.addView(sheet,pp);
         LinearLayout header=new LinearLayout(a);header.setOrientation(LinearLayout.HORIZONTAL);header.setGravity(Gravity.CENTER_VERTICAL);header.setPadding(dp(a,16),dp(a,12),dp(a,12),dp(a,8));sheet.addView(header);
@@ -119,10 +124,14 @@ public final class FlashlightTest {
         darkToggle.setOnClickListener(new View.OnClickListener(){public void onClick(View v){darkWorld=!darkWorld;prefs.edit().putBoolean("darkWorld",darkWorld).apply();updateDarkWorld();}});
         final TextView skyToggle=action(a,"Sky masking   "+(skyMask?"ON":"OFF"),0xff343546);LinearLayout.LayoutParams skyParams=new LinearLayout.LayoutParams(-1,-2);skyParams.topMargin=dp(a,8);body.addView(skyToggle,skyParams);
         skyToggle.setOnClickListener(new View.OnClickListener(){public void onClick(View v){skyMask=!skyMask;prefs.edit().putBoolean("skyMask",skyMask).apply();setSetting(10,skyMask?1f:0f);skyToggle.setText("Sky masking   "+(skyMask?"ON":"OFF"));}});
+        skyShaftToggle=action(a,"Sky shaft only   "+(skyLook==1?"ON":"OFF"),0xff343546);LinearLayout.LayoutParams shaftParams=new LinearLayout.LayoutParams(-1,-2);shaftParams.topMargin=dp(a,8);body.addView(skyShaftToggle,shaftParams);
+        skyShaftToggle.setOnClickListener(new View.OnClickListener(){public void onClick(View v){setSkyLook(UiPolicy.toggleSkyLook(skyLook,1));}});
+        skyHaloToggle=action(a,"Sky soft halo   "+(skyLook==2?"ON":"OFF"),0xff343546);LinearLayout.LayoutParams haloParams=new LinearLayout.LayoutParams(-1,-2);haloParams.topMargin=dp(a,8);body.addView(skyHaloToggle,haloParams);
+        skyHaloToggle.setOnClickListener(new View.OnClickListener(){public void onClick(View v){setSkyLook(UiPolicy.toggleSkyLook(skyLook,2));}});
         final TextView coneToggle=action(a,"Visible cone   "+(visibleCone?"ON":"OFF"),0xff343546);LinearLayout.LayoutParams coneParams=new LinearLayout.LayoutParams(-1,-2);coneParams.topMargin=dp(a,8);body.addView(coneToggle,coneParams);
         coneToggle.setOnClickListener(new View.OnClickListener(){public void onClick(View v){visibleCone=!visibleCone;prefs.edit().putBoolean("visibleCone",visibleCone).apply();setSetting(11,visibleCone?1f:0f);coneToggle.setText("Visible cone   "+(visibleCone?"ON":"OFF"));}});
         for(int i=0;i<2;i++){
-            final int id=12+i;final String labelName=i==0?"Cone horizontal origin":"Cone vertical origin (top to bottom)";float def=i==0?.94f:.92f;
+            final int id=12+i;final String labelName=i==0?"Cone horizontal end":"Cone vertical end (top to bottom)";float def=i==0?.94f:.92f;
             float value=Math.max(0,Math.min(1,prefs.getFloat("setting"+id,def)));setSetting(id,value);
             LinearLayout row=new LinearLayout(a);row.setOrientation(LinearLayout.VERTICAL);row.setPadding(0,dp(a,7),0,0);body.addView(row);
             final TextView label=text(a,labelName+"   "+Math.round(value*100)+"%",12,TEXT,true);row.addView(label);

@@ -72,3 +72,8 @@ The user reported an incorrect shaft after repositioning the cone. The sky exten
 The user also requested that the light follow the player in third person. The current hook supplies camera orientation only. Reliable player-anchored rendering would require validated local-player identity, player/camera positions, projection and view mode; candidate offsets in BedrockTools are not sufficient evidence of a safe ABI on this exact binary. This hotfix does not claim or implement player anchoring. It keeps the existing camera-relative behavior.
 
 Packaging now generates only manifest and native library, embedding complete Flashlight and BedrockTools MIT notices in a manifest field. The launcher source copies unknown manifest fields while normalizing; actual installation remains to be verified.
+
+
+## 1.0.0 hotfix 3: sky looks and cone direction
+
+The user requested a sky shaft without a bright center and a soft-halo alternative, both selectable, and asked that the cone extend from the aim toward the selected position. The persisted mutually exclusive sky looks use depth independently of the sky mask: shaft-only removes the sky spot and enables a sky shaft; halo replaces the sky spot with an edge-weighted glow. Surfaces keep the original spotlight. When depth is unavailable the panel reports it and the modes revert to the ordinary spotlight; there is no reliable way to identify the sky in that fallback. The cone no longer extends past the aim opposite the chosen end. Software EGL tests cover sky and surface behavior, modes, both depth conventions, position changes and fallback. Device appearance and actual depth semantics remain to be verified. Third-person player anchoring remains unimplemented.

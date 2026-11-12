@@ -31,6 +31,10 @@ final class UiPolicy {
         if(Float.isNaN(savedAmbient))return .25f;
         return Math.max(0f,Math.min(1f,savedAmbient));
     }
+    static int toggleSkyLook(int current,int selected) {
+        if(selected!=1&&selected!=2)return 0;
+        return current==selected?0:selected;
+    }
     static boolean showControls(boolean pauseOnly,Boolean pauseOpen) {
         return !pauseOnly || pauseOpen==null || pauseOpen.booleanValue();
     }

@@ -10,6 +10,7 @@ public final class UiPolicyTest {
         check(UiPolicy.fromFraction(800,300,Float.NaN,10)==250);check(Math.abs(UiPolicy.toFraction(800,300,250,10)-.5f)<.001f);
         check(UiPolicy.toFraction(10,10,0,24)==.5f);check(UiPolicy.size(0,40,10,2)==0);
         check(UiPolicy.effectiveAmbient(false,.2f)==1f);check(UiPolicy.effectiveAmbient(true,.2f)==.2f);check(UiPolicy.effectiveAmbient(true,2f)==1f);check(UiPolicy.effectiveAmbient(true,Float.NaN)==.25f);
+        check(UiPolicy.toggleSkyLook(0,1)==1);check(UiPolicy.toggleSkyLook(1,1)==0);check(UiPolicy.toggleSkyLook(1,2)==2);check(UiPolicy.toggleSkyLook(2,1)==1);check(UiPolicy.toggleSkyLook(2,2)==0);
         check(UiPolicy.showControls(false,false));check(!UiPolicy.showControls(true,false));check(UiPolicy.showControls(true,true));check(UiPolicy.showControls(true,null));
         check(UiPolicy.isGameplay(true,false,false));check(!UiPolicy.isGameplay(true,false,true));check(!UiPolicy.isGameplay(null,false,false));check(!UiPolicy.isGameplay(true,true,false));
         System.out.println("overlay geometry and pause visibility tests passed");
