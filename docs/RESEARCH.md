@@ -41,3 +41,10 @@ Controls were redesigned with a fixed header, a clipped scrolling body, and dime
 ## 0.2.0 feedback and controls
 
 The user reported that the 0.1.0 hotfix beam appears and works. They liked the dark surroundings and requested that it become optional, along with a movable, resizable panel. Dark-world mode is now off by default; when off, the shader ambient multiplier is 1, and when on it uses the saved dark-world brightness. The existing camera and GLES hook strategy is unchanged. The panel saves its bounds as normalized screen fractions and clamps them to the current overlay size. Automated geometry, pause-policy, ambient, and software EGL checks do not replace device testing of the new controls.
+
+
+## 0.2.0 hotfix: fast turns and sky
+
+The user observed a snap on fast turns and a beam in the sky. The prior center projection reset to the screen center once the delayed direction passed behind the camera. The beam now compares each screen ray to the delayed direction in camera space, so fast turns can carry it smoothly out of view and back without that reset. It still uses an approximate field of view.
+
+The GLES path attempts to copy the current depth buffer, then masks the beam at far-clear-depth pixels. This is screen-space masking, not physical lighting: the result depends on the depth attachment, depth convention, render pass and clear value. It cannot identify every kind of sky or distant surface, recover texture detail lost to darkness, cast shadows or create a true volumetric cone. If depth cannot be copied, the panel reports that sky masking is unavailable and the beam falls back unmasked. A persisted Sky masking toggle can disable it if the estimate is incorrect. Software EGL tests cover forward and reverse clear-depth, near depth, fallback, extreme turns and GL texture-state restoration; Android and actual game depth contents need verification.

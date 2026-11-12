@@ -33,7 +33,7 @@ public final class FlashlightTest {
     private static final int ACCENT=0xffbba8ff,TEXT=0xfff4f3ff,MUTED=0xffabaec2;
     private static final String[] NAMES={"Red","Green","Blue","Strength","Beam size","Softness","Follow delay","Horizontal position","Vertical position","Dark-world brightness"};
     private static final float[] DEFAULT={1f,.93f,.72f,.62f,.40f,.55f,.32f,.50f,.50f,.25f};
-    private static boolean active,light,pauseOnly,paused,pauseKnown,darkWorld;
+    private static boolean active,light,pauseOnly,paused,pauseKnown,darkWorld,skyMask;
     private static Activity activity;private static OverlayRoot root;private static View panel;private static TextView bubble,status,toggle,pauseToggle,darkToggle;private static SeekBar ambientSlider;
     private static SharedPreferences prefs;private static Method pauseMethod,hudMethod,menuMethod;private static boolean inputLookupDone;
     private static int dp(Context a,float v){return (int)(v*a.getResources().getDisplayMetrics().density+.5f);}
@@ -57,7 +57,7 @@ public final class FlashlightTest {
         if(!active)return;
         try{Class<?> c=Class.forName("org.levimc.launcher.core.mods.inbuilt.overlay.InbuiltOverlayManager");Object m=c.getMethod("getInstance").invoke(null);if(m!=null){Field f=c.getDeclaredField("activity");f.setAccessible(true);Activity a=(Activity)f.get(m);if(a!=null&&!a.isFinishing()&&a!=activity)attach(a);}}catch(Throwable ignored){}
         queryScreen();updateVisibility();
-        if(status!=null){int s=backendStatus();status.setText(s<0?"Unavailable • check FlashlightTest log":s==0?"Connecting to Minecraft…":s==1?"Ready • enable beam in a world":s==2?"Waiting for a compatible world pass":"Rendering • "+frameCount()+" test frames");if(toggle!=null)toggle.setEnabled(s>0);}
+        if(status!=null){int s=backendStatus();status.setText(s<0?"Unavailable • check FlashlightTest log":s==0?"Connecting to Minecraft…":s==1?"Ready • enable beam in a world":s==2?"Waiting for a compatible world pass":s==4?"Rendering • sky mask unavailable":"Rendering • "+frameCount()+" test frames");if(toggle!=null)toggle.setEnabled(s>0);}
         MAIN.postDelayed(this,200);
     }};
     public static void start(){MAIN.post(new Runnable(){public void run(){if(active)return;active=true;monitor.run();}});}
@@ -96,7 +96,7 @@ public final class FlashlightTest {
         setSetting(9,UiPolicy.effectiveAmbient(darkWorld,value));
     }
     private static void attach(final Activity a){
-        detach();activity=a;prefs=a.getSharedPreferences("flashlight_test_settings",0);pauseOnly=prefs.getBoolean("pauseOnly",false);darkWorld=prefs.getBoolean("darkWorld",false);root=new OverlayRoot(a,prefs);
+        detach();activity=a;prefs=a.getSharedPreferences("flashlight_test_settings",0);pauseOnly=prefs.getBoolean("pauseOnly",false);darkWorld=prefs.getBoolean("darkWorld",false);skyMask=prefs.getBoolean("skyMask",true);setSetting(10,skyMask?1f:0f);root=new OverlayRoot(a,prefs);
         final LinearLayout sheet=new LinearLayout(a);panel=sheet;root.sheet=sheet;sheet.setOrientation(LinearLayout.VERTICAL);sheet.setBackground(bg(0xf51b1c29,18,a));sheet.setClipToOutline(true);sheet.setVisibility(View.GONE);
         FrameLayout.LayoutParams pp=new FrameLayout.LayoutParams(dp(a,320),dp(a,320),Gravity.LEFT|Gravity.TOP);root.addView(sheet,pp);
         LinearLayout header=new LinearLayout(a);header.setOrientation(LinearLayout.HORIZONTAL);header.setGravity(Gravity.CENTER_VERTICAL);header.setPadding(dp(a,16),dp(a,12),dp(a,12),dp(a,8));sheet.addView(header);
@@ -117,6 +117,8 @@ public final class FlashlightTest {
         pauseToggle.setOnClickListener(new View.OnClickListener(){public void onClick(View v){pauseOnly=!pauseOnly;prefs.edit().putBoolean("pauseOnly",pauseOnly).apply();queryScreen();updateVisibility();}});
         darkToggle=action(a,"Dark world   OFF",0xff343546);LinearLayout.LayoutParams darkParams=new LinearLayout.LayoutParams(-1,-2);darkParams.topMargin=dp(a,8);body.addView(darkToggle,darkParams);
         darkToggle.setOnClickListener(new View.OnClickListener(){public void onClick(View v){darkWorld=!darkWorld;prefs.edit().putBoolean("darkWorld",darkWorld).apply();updateDarkWorld();}});
+        final TextView skyToggle=action(a,"Sky masking   "+(skyMask?"ON":"OFF"),0xff343546);LinearLayout.LayoutParams skyParams=new LinearLayout.LayoutParams(-1,-2);skyParams.topMargin=dp(a,8);body.addView(skyToggle,skyParams);
+        skyToggle.setOnClickListener(new View.OnClickListener(){public void onClick(View v){skyMask=!skyMask;prefs.edit().putBoolean("skyMask",skyMask).apply();setSetting(10,skyMask?1f:0f);skyToggle.setText("Sky masking   "+(skyMask?"ON":"OFF"));}});
         for(int i=0;i<NAMES.length;i++){
             final int id=i;float value=Math.max(0,Math.min(1,prefs.getFloat("setting"+i,DEFAULT[i])));if(i!=9)setSetting(i,value);
             LinearLayout row=new LinearLayout(a);row.setOrientation(LinearLayout.VERTICAL);row.setPadding(0,dp(a,7),0,0);body.addView(row);

@@ -19,6 +19,16 @@ inline Quaternion interpolate(Quaternion a, Quaternion b, double t) {
     if (d<0.9995) { double theta=std::acos(d), denom=std::sin(theta); aa=std::sin((1-t)*theta)/denom; bb=std::sin(t*theta)/denom; }
     Quaternion q{aa*a.x+bb*b.x,aa*a.y+bb*b.y,aa*a.z+bb*b.z,aa*a.w+bb*b.w}; normalize(q); return q;
 }
+inline Quaternion multiply(Quaternion a,Quaternion b) {
+    return {a.w*b.x+a.x*b.w+a.y*b.z-a.z*b.y,a.w*b.y-a.x*b.z+a.y*b.w+a.z*b.x,a.w*b.z+a.x*b.y-a.y*b.x+a.z*b.w,a.w*b.w-a.x*b.x-a.y*b.y-a.z*b.z};
+}
+// Delayed world-space beam expressed in current camera space. Unlike a
+// perspective division this remains continuous when the beam goes behind us.
+inline Quaternion relativeForward(Quaternion current,Quaternion delayed) {
+    if(!normalize(current)||!normalize(delayed))return {0,0,-1,0};
+    Quaternion r=multiply({-current.x,-current.y,-current.z,current.w},delayed);
+    return multiply(multiply(r,{0,0,-1,0}),{-r.x,-r.y,-r.z,r.w});
+}
 class Lag {
     Quaternion current_{0,0,0,1}; bool valid_=false;
 public:

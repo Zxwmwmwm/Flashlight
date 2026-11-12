@@ -8,5 +8,6 @@
   "minecraft_versions": [
     "1.26.62",
     "1.26.62.*"
-  ]
+  ],
+  "hf": true
 }
