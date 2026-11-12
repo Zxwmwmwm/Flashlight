@@ -1,9 +1,9 @@
 {
   "type": "preload-native",
-  "name": "Flashlight Test",
+  "name": "Flashlight",
   "author": "Zxwmwmwm",
-  "description": "Camera-following flashlight with optional visible cone, dark-world mode, and resizable controls.",
-  "version": "0.3.0",
+  "description": "Customizable flashlight with a positionable visible cone, dark-world mode, and resizable controls.",
+  "version": "1.0.0",
   "entry": "libFlashlightTest.so",
   "minecraft_versions": [
     "1.26.62",

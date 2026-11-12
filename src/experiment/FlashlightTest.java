@@ -31,7 +31,7 @@ public final class FlashlightTest {
     private static native int frameCount();
     private static final Handler MAIN=new Handler(Looper.getMainLooper());
     private static final int ACCENT=0xffbba8ff,TEXT=0xfff4f3ff,MUTED=0xffabaec2;
-    private static final String[] NAMES={"Red","Green","Blue","Strength","Beam size","Softness","Follow delay","Horizontal position","Vertical position","Dark-world brightness"};
+    private static final String[] NAMES={"Red","Green","Blue","Strength","Beam size","Softness","Follow delay","Beam horizontal position","Beam vertical position","Dark-world brightness"};
     private static final float[] DEFAULT={1f,.93f,.72f,.62f,.40f,.55f,.32f,.50f,.50f,.25f};
     private static boolean active,light,pauseOnly,paused,pauseKnown,darkWorld,skyMask,visibleCone;
     private static Activity activity;private static OverlayRoot root;private static View panel;private static TextView bubble,status,toggle,pauseToggle,darkToggle;private static SeekBar ambientSlider;
@@ -57,7 +57,7 @@ public final class FlashlightTest {
         if(!active)return;
         try{Class<?> c=Class.forName("org.levimc.launcher.core.mods.inbuilt.overlay.InbuiltOverlayManager");Object m=c.getMethod("getInstance").invoke(null);if(m!=null){Field f=c.getDeclaredField("activity");f.setAccessible(true);Activity a=(Activity)f.get(m);if(a!=null&&!a.isFinishing()&&a!=activity)attach(a);}}catch(Throwable ignored){}
         queryScreen();updateVisibility();
-        if(status!=null){int s=backendStatus();status.setText(s<0?"Unavailable • check FlashlightTest log":s==0?"Connecting to Minecraft…":s==1?"Ready • enable beam in a world":s==2?"Waiting for a compatible world pass":s==4?"Rendering • sky mask unavailable":"Rendering • "+frameCount()+" test frames");if(toggle!=null)toggle.setEnabled(s>0);}
+        if(status!=null){int s=backendStatus();status.setText(s<0?"Unavailable • check FlashlightTest log":s==0?"Connecting to Minecraft…":s==1?"Ready • enable beam in a world":s==2?"Waiting for a compatible world pass":s==4?"Rendering • sky mask unavailable":"Rendering • "+frameCount()+" frames");if(toggle!=null)toggle.setEnabled(s>0);}
         MAIN.postDelayed(this,200);
     }};
     public static void start(){MAIN.post(new Runnable(){public void run(){if(active)return;active=true;monitor.run();}});}
@@ -111,7 +111,7 @@ public final class FlashlightTest {
         TextView close=action(a,"✕",0xff343546);header.addView(close);close.setOnClickListener(new View.OnClickListener(){public void onClick(View v){sheet.setVisibility(View.GONE);}});
         ScrollView scroll=new ScrollView(a);scroll.setFillViewport(false);scroll.setClipChildren(true);scroll.setClipToPadding(true);sheet.addView(scroll,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,0,1));
         LinearLayout body=new LinearLayout(a);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(dp(a,16),dp(a,2),dp(a,16),dp(a,16));scroll.addView(body);
-        TextView info=text(a,"Experimental screen-space beam",12,MUTED,false);info.setPadding(0,0,0,dp(a,8));body.addView(info);
+        TextView info=text(a,"Screen-space flashlight",12,MUTED,false);info.setPadding(0,0,0,dp(a,8));body.addView(info);
         toggle=action(a,light?"TURN BEAM OFF":"TURN BEAM ON",0xff6552bd);toggle.setEnabled(false);body.addView(toggle);toggle.setOnClickListener(new View.OnClickListener(){public void onClick(View v){light=!light;setEnabled(light);toggle.setText(light?"TURN BEAM OFF":"TURN BEAM ON");}});
         pauseToggle=action(a,"Pause-only controls   OFF",0xff343546);LinearLayout.LayoutParams opt=new LinearLayout.LayoutParams(-1,-2);opt.topMargin=dp(a,8);body.addView(pauseToggle,opt);
         pauseToggle.setOnClickListener(new View.OnClickListener(){public void onClick(View v){pauseOnly=!pauseOnly;prefs.edit().putBoolean("pauseOnly",pauseOnly).apply();queryScreen();updateVisibility();}});
@@ -121,6 +121,14 @@ public final class FlashlightTest {
         skyToggle.setOnClickListener(new View.OnClickListener(){public void onClick(View v){skyMask=!skyMask;prefs.edit().putBoolean("skyMask",skyMask).apply();setSetting(10,skyMask?1f:0f);skyToggle.setText("Sky masking   "+(skyMask?"ON":"OFF"));}});
         final TextView coneToggle=action(a,"Visible cone   "+(visibleCone?"ON":"OFF"),0xff343546);LinearLayout.LayoutParams coneParams=new LinearLayout.LayoutParams(-1,-2);coneParams.topMargin=dp(a,8);body.addView(coneToggle,coneParams);
         coneToggle.setOnClickListener(new View.OnClickListener(){public void onClick(View v){visibleCone=!visibleCone;prefs.edit().putBoolean("visibleCone",visibleCone).apply();setSetting(11,visibleCone?1f:0f);coneToggle.setText("Visible cone   "+(visibleCone?"ON":"OFF"));}});
+        for(int i=0;i<2;i++){
+            final int id=12+i;final String labelName=i==0?"Cone horizontal origin":"Cone vertical origin (top to bottom)";float def=i==0?.94f:.92f;
+            float value=Math.max(0,Math.min(1,prefs.getFloat("setting"+id,def)));setSetting(id,value);
+            LinearLayout row=new LinearLayout(a);row.setOrientation(LinearLayout.VERTICAL);row.setPadding(0,dp(a,7),0,0);body.addView(row);
+            final TextView label=text(a,labelName+"   "+Math.round(value*100)+"%",12,TEXT,true);row.addView(label);
+            SeekBar slider=new SeekBar(a);slider.setMax(100);slider.setProgress(Math.round(value*100));slider.setProgressTintList(ColorStateList.valueOf(ACCENT));slider.setThumbTintList(ColorStateList.valueOf(ACCENT));row.addView(slider);
+            slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar s,int v,boolean fromUser){float x=v/100f;setSetting(id,x);label.setText(labelName+"   "+v+"%");if(fromUser&&prefs!=null)prefs.edit().putFloat("setting"+id,x).apply();}public void onStartTrackingTouch(SeekBar s){}public void onStopTrackingTouch(SeekBar s){}});
+        }
         for(int i=0;i<NAMES.length;i++){
             final int id=i;float value=Math.max(0,Math.min(1,prefs.getFloat("setting"+i,DEFAULT[i])));if(i!=9)setSetting(i,value);
             LinearLayout row=new LinearLayout(a);row.setOrientation(LinearLayout.VERTICAL);row.setPadding(0,dp(a,7),0,0);body.addView(row);

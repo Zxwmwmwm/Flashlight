@@ -1,52 +1,50 @@
 # Flashlight
 
-A customizable camera-following flashlight experiment for LeviLauncher on Android ARM64. Adjust the beam color, strength, size, softness, placement, ambient brightness, and the delay as it follows camera turns. A separate **Visible cone** toggle adds a soft light shaft from the lower-right toward the beam. Fast turns can carry the lagged beam out of view rather than snapping it back to the center.
+A customizable camera-following flashlight for LeviLauncher on Android ARM64, by **Zxwmwmwm**.
 
-## Experimental rendering test — 0.3.0
+## Features
 
-This is a **screen-space GLES experiment**, not true dynamic world lighting. The visible cone is a stylized screen-space effect, not a volumetric light or a held flashlight model; it does not provide true geometric occlusion. It changes the brightness and tint of existing world-render pixels; it cannot recover detail from completely black pixels, cast physical shadows, or light blocks outside the current view. The first device test found that the world callback has no current EGL context. The current implementation observes GLES clear operations on the render thread and uses a conservative pass-boundary heuristic to try to process the world before the HUD. The user reported that the beam appeared and worked on their device. The user subsequently reported the fast-turn and sky-mask hotfix was working; the new 0.3.0 cone effect still needs device validation. The test can affect the hand or other rendered elements depending on render order. Sky masking uses the depth buffer where available; it is an approximation, may misclassify distant geometry or sky pixels, and can fall back to an unmasked beam if depth copying is unsupported. Graphics modes using a different rendering backend may not work.
+- Soft adjustable spotlight with color, brightness, size, softness, position and camera-follow delay.
+- Optional **Visible cone** with independent horizontal and vertical origin sliders. Its color and strength follow the main beam.
+- Optional **Dark world** mode with a separate brightness control.
+- Optional depth-based **Sky masking**, enabled by default.
+- Movable, resizable control panel and optional pause-only controls. Settings are saved on the device.
 
-The test installs native camera, GLES and EGL hooks and checks for the exact GNU build ID `c60fa32908019eecae39ebfe7bac5755dc35cde2` of the supplied Android library, plus two expected signatures. Other builds are rejected even if their version labels look similar. These checks reduce the risk of a wrong-build hook; they do **not** prove the ABI, object layout, render pass, or hooks are safe. It starts with the beam **off**; the hooks are installed when the mod is enabled. In case of a crash or visual issues, disable the mod in LeviLauncher and restart Minecraft. Avoid combining the test with other rendering-hook mods during initial testing.
+## Install and use
 
-### Try the test
+1. Download `Flashlight.levipack` from the [latest release](https://github.com/Zxwmwmwm/Flashlight/releases/latest), import it into LeviLauncher and enable it. Disable earlier Flashlight test or probe builds and other rendering-hook mods before trying this release.
+2. Enter a world, tap the floating **FL** button, then **Turn beam on**. The beam starts off each time the mod starts and runs only when the launcher reports the gameplay HUD.
+3. Turn **Visible cone** on to show the light shaft. Use **Cone horizontal origin** (left to right) and **Cone vertical origin** (top to bottom) to move where it begins. The separately labeled **Beam** position sliders move the spotlight aim. The cone defaults to the lower-right and is off until enabled.
+4. Use the other sliders to customize the beam. Turn on **Dark world** to use the saved dark-world brightness. Use **Sky masking** to reduce light on far-background pixels; turn it off if it hides the beam incorrectly. When depth copying is unavailable, the panel reports it and rendering continues without the mask.
+5. Drag the panel by its title, resize it with **↘ RESIZE**, and optionally enable **Pause-only controls**. Pause the game to reveal controls again; if pause detection is unavailable, controls stay accessible.
 
-1. Disable the earlier Flashlight Probe and other experimental rendering mods. Import `Flashlight-Test.levipack` in LeviLauncher and enable it.
-2. Enter a world. Tap the floating **FL** button and then **Turn beam on**. Move the camera and try the controls. Tap **Turn beam off** to restore the unprocessed view. The beam runs only when the launcher reports the gameplay HUD, not a menu.
-3. Toggle **Dark world** to darken the surroundings. When on, use **Dark-world brightness** to choose how dark; when off, the surroundings retain their original brightness. The toggle is off by default, and the previous brightness value is kept.
-4. Drag the panel by its title and resize it using the **↘ RESIZE** handle at the bottom. The panel position and size are saved and clamped to the available screen.
-5. Turn **Visible cone** on for a soft shaft of light; turn it off to retain the existing spotlight. It follows the same color, strength, beam size, aim, and camera lag. The setting is saved and is off by default.
-6. **Sky masking** is on by default. It attempts to keep the beam off far-background pixels. If depth copying is unavailable, the panel reports it and the beam continues without a mask. You can turn masking off if it hides the beam incorrectly.
-7. To hide the controls outside the Minecraft pause menu, enable **Pause-only controls**. Pause the game to reveal the FL button again; the launcher must support pause-screen detection. If the detection API is unavailable, controls remain accessible.
-8. Check whether the beam appears, whether it lags naturally in the correct direction, and whether the HUD, hand, menus, and buttons remain unaffected. The on-screen counter reports successfully submitted test frames, not proof that the beam is visible or UI-safe.
-9. If it does not appear or anything looks unusual, filter LogLens for **`FlashlightTest`** and share the log along with the in-panel status. Turn the beam off or disable the mod and restart.
+## Compatibility and limitations
 
-Settings, including dark-world mode, pause-only controls, and panel size and position, are saved on the device; the on/off state resets to off when the mod starts. The bubble can be dragged for the current session. Minecraft world or server state is not intentionally changed.
+Flashlight uses a screen-space GLES effect, not physical world lighting. Its visible cone is a stylized overlay, not a held object or true volumetric beam. It cannot cast physical shadows, illuminate off-screen blocks, recover detail from completely black pixels, or reliably account for every occluding surface. Sky masking depends on a usable depth buffer and can misclassify sky or distant geometry. Render order can also affect the hand or HUD, and other graphics backends may not support the effect.
 
-## Read-only diagnostic
+The mod uses native camera, GLES and EGL hooks, gated to the exact Android game library with GNU build ID `c60fa32908019eecae39ebfe7bac5755dc35cde2` and matching signatures, associated with the supplied 1.26.62 build. Similar version labels alone do not establish compatibility. The checks do not guarantee hook safety across devices or graphics configurations. If you encounter a crash or visual issue, disable the mod and restart Minecraft; logs are tagged `FlashlightTest`.
 
-The separate `Flashlight-Probe.levipack` scans candidate signatures and logs counts under `FlashlightProbe`; it does not install hooks or render effects. The user's probe log recorded one candidate for each of the five selected signatures. This confirms matches in readable executable memory, not function identity or safe behavior.
-
-## Build
+## Build and tests
 
 Requirements: Linux x86-64, Python 3, C++17, JDK, Android NDK r28c, Android platform `android.jar`, and a D8/R8 jar.
 
 ```sh
 bash tests/run.sh
-# Optional host-side software EGL/GLES test (libEGL and libGLES development headers required):
+# Optional software EGL/GLES test (development headers and libraries required):
 bash tests/run_render.sh
 export ANDROID_NDK_HOME=/path/to/android-ndk-r28c
 export ANDROID_JAR=/path/to/android.jar
 export R8_JAR=/path/to/d8.jar
 bash tools/build_test.sh
+# Optional read-only diagnostic probe:
 bash tools/build_probe.sh
 ```
 
-Build outputs are under `artifacts/` and are not committed. GitHub Actions tests and builds both packages on pushes, pull requests, and manual dispatch. Tags named `test-v*` and `probe-v*` publish separate experimental releases, each with its respective `.levipack` as the sole uploaded asset. The Flashlight rendering-test version is 0.3.0.
+Packages are generated under `artifacts/`, not committed to source. GitHub Actions runs tests and builds ARM64 packages. A `v*` tag publishes a regular release with `Flashlight.levipack` as the sole uploaded asset; `test-v*` and `probe-v*` tags publish their respective prereleases. The separate diagnostic probe scans signatures and logs match counts without rendering or installing hooks.
 
 ## Credits and license
 
 Copyright © 2026 Zxwmwmwm. Flashlight is MIT licensed. Candidate signatures, camera offset, and render-pass research are informed by [BedrockTools](https://github.com/QYCottage/BedrockTools); its full MIT notice is included below and in the packages. LeviLauncher and BedrockTools are used as development references. The Minecraft library is not distributed here.
-
 
 ## BedrockTools license
 

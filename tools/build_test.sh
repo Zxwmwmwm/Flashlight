@@ -17,7 +17,7 @@ PY
 "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang++" -std=c++17 -O2 -Wall -Wextra -Werror -fPIC -shared -Wl,-z,max-page-size=16384 src/experiment/loader.cpp src/experiment/engine.cpp "$w/dex.cpp" -llog -ldl -lEGL -lGLESv3 -static-libstdc++ -o artifacts/libFlashlightTest.so
 python3 - <<'PY'
 from zipfile import ZipFile,ZIP_DEFLATED
-with ZipFile('artifacts/Flashlight-Test.levipack','w',ZIP_DEFLATED) as z:
+with ZipFile('artifacts/Flashlight.levipack','w',ZIP_DEFLATED) as z:
  for s,t in [('src/experiment/manifest.json','manifest.json'),('artifacts/libFlashlightTest.so','libFlashlightTest.so'),('LICENSE','LICENSE')]:z.write(s,t)
  z.writestr('LICENSE-BedrockTools',open('README.md',encoding='utf-8').read().split('## BedrockTools license\n\n',1)[1])
 PY

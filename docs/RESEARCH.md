@@ -53,3 +53,8 @@ The GLES path attempts to copy the current depth buffer, then masks the beam at 
 ## 0.3.0: optional visible light cone
 
 The user reported the 0.2.0 hotfix was working and requested a switchable visible cone resembling a reference image. The new persisted Visible cone setting defaults off. It adds a tapered, soft screen-space shaft between a lower-right origin and the delayed beam direction, using the same color, strength, beam size and sky mask. It does not introduce a held flashlight object. The shaft is a stylized post-process, not true participating-media rendering: it cannot trace a 3D volume or reliably determine occlusion, and sky masking depends on a usable and representative depth buffer. Mesa software EGL tests exercise cone on/off, pixels outside the shaft, sky masking and large camera turns; visual and performance validation on Android remains necessary.
+
+
+## 1.0.0: cone origin controls
+
+Two saved screen-space controls independently set the shaft origin from left to right and top to bottom, defaulting to the previous lower-right position. Existing beam-position controls still adjust the spotlight aim separately. Software EGL tests cover changes to both axes. These controls and their appearance require real-device validation; the same screen-space and depth-buffer limitations continue to apply.
